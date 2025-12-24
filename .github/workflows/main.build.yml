@@ -1,6 +1,5 @@
 name: OpenDraft CI
 
-# Required for GitHub Releases
 permissions:
   contents: write
 
@@ -160,5 +159,6 @@ jobs:
             - macOS app
             - iOS build (unsigned)
           files: artifacts/**/*
+          fail_on_unmatched_files: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
