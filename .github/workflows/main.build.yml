@@ -1,4 +1,4 @@
-name: OpenDraft Build
+name: OpenDraft CI
 
 on:
   push:
@@ -10,11 +10,26 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
       - uses: subosito/flutter-action@v2
         with:
           channel: stable
+
+      # Auto-increment build number
+      - name: Auto-increment build number
+        run: |
+          VERSION_LINE=$(grep '^version:' pubspec.yaml)
+          VERSION=$(echo $VERSION_LINE | cut -d ' ' -f2)
+          BASE=$(echo $VERSION | cut -d+ -f1)
+          BUILD=$(echo $VERSION | cut -d+ -f2)
+          NEW_BUILD=$((BUILD + 1))
+          NEW_VERSION="$BASE+$NEW_BUILD"
+          sed -i "s/version: .*/version: $NEW_VERSION/" pubspec.yaml
+          echo "New version: $NEW_VERSION"
+
       - run: flutter pub get
       - run: flutter build apk --release
+
       - uses: actions/upload-artifact@v4
         with:
           name: android-apk
@@ -24,29 +39,35 @@ jobs:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
+
       - uses: subosito/flutter-action@v2
         with:
           channel: stable
+
       - run: flutter config --enable-windows-desktop
       - run: flutter pub get
       - run: flutter build windows --release
+
       - uses: actions/upload-artifact@v4
         with:
           name: windows-exe
-          path: build/windows/runner/Release/
+          path: build/windows/x64/runner/Release/
 
   build-linux:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
       - uses: subosito/flutter-action@v2
         with:
           channel: stable
+
       - run: sudo apt-get update
       - run: sudo apt-get install -y clang cmake ninja-build pkg-config libgtk-3-dev
       - run: flutter config --enable-linux-desktop
       - run: flutter pub get
       - run: flutter build linux --release
+
       - uses: actions/upload-artifact@v4
         with:
           name: linux-build
@@ -56,11 +77,14 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
       - uses: subosito/flutter-action@v2
         with:
           channel: stable
+
       - run: flutter pub get
       - run: flutter build web --release
+
       - uses: actions/upload-artifact@v4
         with:
           name: web-build
@@ -70,12 +94,15 @@ jobs:
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
+
       - uses: subosito/flutter-action@v2
         with:
           channel: stable
+
       - run: flutter config --enable-macos-desktop
       - run: flutter pub get
       - run: flutter build macos --release
+
       - uses: actions/upload-artifact@v4
         with:
           name: macos-app
@@ -85,12 +112,46 @@ jobs:
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
+
       - uses: subosito/flutter-action@v2
         with:
           channel: stable
+
       - run: flutter pub get
+
+      # Build iOS without signing (works on CI)
       - run: flutter build ios --release --no-codesign
+
       - uses: actions/upload-artifact@v4
         with:
           name: ios-build
           path: build/ios/iphoneos/
+
+  release:
+    needs: [build-android, build-windows, build-linux, build-web, build-macos, build-ios]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: "v${{ github.run_number }}"
+          name: "OpenDraft Build ${{ github.run_number }}"
+          body: |
+            Automated release for build ${{ github.run_number }}.
+            Includes:
+            - Android APK
+            - Windows EXE
+            - Linux build
+            - Web build
+            - macOS app
+            - iOS build (unsigned)
+          files: artifacts/**/*
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
