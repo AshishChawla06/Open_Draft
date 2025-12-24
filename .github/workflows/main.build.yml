@@ -1,5 +1,9 @@
 name: OpenDraft CI
 
+# Required for GitHub Releases
+permissions:
+  contents: write
+
 on:
   push:
     branches: [ main ]
@@ -119,7 +123,7 @@ jobs:
 
       - run: flutter pub get
 
-      # Build iOS without signing (works on CI)
+      # Unsigned IPA (signing comes next)
       - run: flutter build ios --release --no-codesign
 
       - uses: actions/upload-artifact@v4
@@ -128,8 +132,11 @@ jobs:
           path: build/ios/iphoneos/
 
   release:
+    if: github.ref == 'refs/heads/main'
     needs: [build-android, build-windows, build-linux, build-web, build-macos, build-ios]
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v4
 
