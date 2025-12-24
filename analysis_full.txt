@@ -1,0 +1,38 @@
+﻿Analyzing novel_app...                                          
+
+   info - Missing type annotation - lib\services\epub_export_service.dart:175:38 - strict_top_level_inference
+   info - Don't invoke 'print' in production code - lib\services\image_service.dart:24:7 - avoid_print
+   info - Don't invoke 'print' in production code - lib\services\image_service.dart:53:7 - avoid_print
+   info - Don't invoke 'print' in production code - lib\services\image_service.dart:106:7 - avoid_print
+   info - 'red' is deprecated and shouldn't be used. Use (*.r * 255.0).round().clamp(0, 255) - lib\services\image_service.dart:127:16 - deprecated_member_use
+   info - 'green' is deprecated and shouldn't be used. Use (*.g * 255.0).round().clamp(0, 255) - lib\services\image_service.dart:128:16 - deprecated_member_use
+   info - 'blue' is deprecated and shouldn't be used. Use (*.b * 255.0).round().clamp(0, 255) - lib\services\image_service.dart:129:16 - deprecated_member_use
+   info - 'value' is deprecated and shouldn't be used. Use component accessors like .r or .g, or toARGB32 for an explicit conversion - lib\services\image_service.dart:130:9 - deprecated_member_use
+   info - 'value' is deprecated and shouldn't be used. Use component accessors like .r or .g, or toARGB32 for an explicit conversion - lib\services\image_service.dart:137:38 - deprecated_member_use
+   info - 'value' is deprecated and shouldn't be used. Use component accessors like .r or .g, or toARGB32 for an explicit conversion - lib\services\image_service.dart:167:26 - deprecated_member_use
+   info - 'value' is deprecated and shouldn't be used. Use component accessors like .r or .g, or toARGB32 for an explicit conversion - lib\services\image_service.dart:168:30 - deprecated_member_use
+   info - 'value' is deprecated and shouldn't be used. Use component accessors like .r or .g, or toARGB32 for an explicit conversion - lib\services\image_service.dart:169:28 - deprecated_member_use
+   info - 'value' is deprecated and shouldn't be used. Use component accessors like .r or .g, or toARGB32 for an explicit conversion - lib\services\image_service.dart:170:32 - deprecated_member_use
+   info - 'value' is deprecated and shouldn't be used. Use component accessors like .r or .g, or toARGB32 for an explicit conversion - lib\services\image_service.dart:171:26 - deprecated_member_use
+   info - 'alpha' is deprecated and shouldn't be used. Use (*.a * 255.0).round().clamp(0, 255) - lib\theme\app_theme.dart:53:21 - deprecated_member_use
+   info - 'red' is deprecated and shouldn't be used. Use (*.r * 255.0).round().clamp(0, 255) - lib\theme\app_theme.dart:54:19 - deprecated_member_use
+   info - 'green' is deprecated and shouldn't be used. Use (*.g * 255.0).round().clamp(0, 255) - lib\theme\app_theme.dart:55:21 - deprecated_member_use
+   info - 'blue' is deprecated and shouldn't be used. Use (*.b * 255.0).round().clamp(0, 255) - lib\theme\app_theme.dart:56:20 - deprecated_member_use
+
+flutter : 18 issues found. 
+(ran in 1.5s)
+At line:1 char:1
++ flutter analyze 2>&1 | 
+Out-File -FilePath 
+"analysis_full.txt" -Encodi 
+...
++ ~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          
+    : NotSpe    cified: (18 
+issu    es found. (ran i    
+n 1.5s):String)     [], 
+RemoteExcept    ion
+    + FullyQualified    
+ErrorId : Native    
+CommandError
+ 
