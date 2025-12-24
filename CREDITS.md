@@ -23,7 +23,7 @@ OpenDraft’s interface is built on a custom blend of:
 - SVG‑driven expressive backgrounds  
 - Accessibility‑first typography and layout  
 
-Conceptual design assistance provided through collaboration with **Microsoft Copilot**.
+
 
 ---
 
