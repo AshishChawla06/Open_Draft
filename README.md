@@ -2,6 +2,7 @@
 **Modular writing for every world.**  
 OpenDraft is a modern, distraction‑free writing studio built for creators, SCP authors, and worldbuilders. It blends **Liquid Glass UI** with **Material You expressive design**, offering a clean, tactile, and deeply customizable writing experience.
 
+[View Credits](CREDITS.md)
 ---
 
 ## ✨ Features
