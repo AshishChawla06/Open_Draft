@@ -136,6 +136,10 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+    env:
+      # optional: set secrets.GH_PAT if you want a PAT (recommended if you hit limits)
+      GH_PAT: ${{ secrets.GH_PAT }}
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     steps:
       - uses: actions/checkout@v4
 
@@ -144,7 +148,7 @@ jobs:
         with:
           path: artifacts
 
-      - name: Create GitHub Release
+      - name: Create GitHub Release (no assets)
         uses: softprops/action-gh-release@v2
         with:
           tag_name: "v${{ github.run_number }}"
@@ -158,7 +162,46 @@ jobs:
             - Web build
             - macOS app
             - iOS build (unsigned)
-          files: artifacts/**/*
-          fail_on_unmatched_files: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        # NOTE: we intentionally do NOT pass 'files' here to avoid parallel/large uploads
+
+      - name: Authenticate gh CLI
+        run: |
+          # Prefer GH_PAT (personal token) when provided because it can avoid some runner-imposed limitations.
+          if [ -n "${GH_PAT}" ]; then
+            echo "Authenticating with GH_PAT"
+            echo "${GH_PAT}" | gh auth login --with-token
+          else
+            echo "Authenticating with GITHUB_TOKEN"
+            echo "${GITHUB_TOKEN}" | gh auth login --with-token
+          fi
+
+      - name: Upload release assets with throttling and retries
+        run: |
+          set -euo pipefail
+          TAG="v${{ github.run_number }}"
+          echo "Uploading files from artifacts/ to release $TAG with throttling"
+
+          # Find all files recursively and upload them one-by-one.
+          find artifacts -type f -print0 | while IFS= read -r -d '' file; do
+            echo "Preparing to upload: $file"
+            attempt=0
+            max_attempts=5
+            until [ $attempt -ge $max_attempts ]; do
+              if gh release upload "$TAG" "$file" --clobber; then
+                echo "Uploaded $file"
+                break
+              fi
+              attempt=$((attempt + 1))
+              sleep_seconds=$((2 ** attempt))
+              echo "Upload attempt $attempt failed for $file — retrying in ${sleep_seconds}s"
+              sleep $sleep_seconds
+            done
+            if [ $attempt -ge $max_attempts ]; then
+              echo "ERROR: Failed to upload $file after $max_attempts attempts"
+              exit 1
+            fi
+            # small fixed delay between uploads to avoid triggering secondary rate limits
+            sleep 6
+          done
