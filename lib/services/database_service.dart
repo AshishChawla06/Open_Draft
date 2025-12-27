@@ -14,6 +14,7 @@ import '../models/snapshot.dart';
 import '../models/character.dart';
 import '../models/bookmark.dart';
 import '../models/template.dart';
+//import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 class DatabaseService {
   static Database? _database;
@@ -821,6 +822,9 @@ class DatabaseService {
         'author': book.author,
         'description': book.description,
         'coverImagePath': book.coverUrl,
+        'themeColor': book.themeColor,
+        'documentType': book.documentType.name,
+        'scpMetadata': book.scpMetadata?.toJsonString(),
         'updatedAt': DateTime.now().toIso8601String(),
       },
       where: 'id = ?',

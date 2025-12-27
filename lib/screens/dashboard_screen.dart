@@ -167,9 +167,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Expanded(
-                  flex: 3,
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
                     children: [
                       Text(
                         'Draft, contain,\nand craft your\nworlds.',
@@ -191,45 +191,50 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       ),
                       const SizedBox(height: 32),
                       Row(
+                        mainAxisSize: MainAxisSize.min,
                         children: [
-                          _buildElevatedButton(
-                            'New Project',
-                            true,
-                            onTap: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) => const NewBookScreen(),
-                                ),
-                              ).then((_) => _loadData());
-                            },
-                          ),
-                          const SizedBox(width: 12),
-                          _buildElevatedButton(
-                            'Open Last Draft',
-                            false,
-                            onTap: () {
-                              if (_recentBooks.isNotEmpty) {
+                          Flexible(
+                            child: _buildElevatedButton(
+                              'New Project',
+                              true,
+                              onTap: () {
                                 Navigator.push(
                                   context,
                                   MaterialPageRoute(
-                                    builder: (context) => BookDetailScreen(
-                                      book: _recentBooks.first,
-                                    ),
+                                    builder: (context) => const NewBookScreen(),
                                   ),
                                 ).then((_) => _loadData());
-                              }
-                            },
+                              },
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Flexible(
+                            child: _buildElevatedButton(
+                              'Open Last Draft',
+                              false,
+                              onTap: () {
+                                if (_recentBooks.isNotEmpty) {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (context) => BookDetailScreen(
+                                        book: _recentBooks.first,
+                                      ),
+                                    ),
+                                  ).then((_) => _loadData());
+                                }
+                              },
+                            ),
                           ),
                         ],
                       ),
                       const SizedBox(height: 24),
-                      Row(
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
                         children: [
                           _buildMiniTag('Member IDs'),
-                          const SizedBox(width: 8),
                           _buildMiniTag('SCP'),
-                          const SizedBox(width: 8),
                           _buildMiniTag('Campaigns'),
                         ],
                       ),
@@ -238,8 +243,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 ),
                 const SizedBox(width: 32),
                 // Interactive Drafts Stack
-                Expanded(
-                  flex: 2,
+                SizedBox(
+                  width: 300,
                   child: MouseRegion(
                     onEnter: (_) => setState(() => _isStackHovered = true),
                     onExit: (_) => setState(() => _isStackHovered = false),
@@ -747,7 +752,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 color: Theme.of(context).colorScheme.primary,
               ),
               const SizedBox(width: 8),
-              Expanded(
+              Flexible(
                 child: Text(
                   book.documentType == DocumentType.scp ? 'SCP' : 'Draft',
                   style: TextStyle(

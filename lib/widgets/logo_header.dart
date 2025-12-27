@@ -48,12 +48,17 @@ class LogoHeader extends StatelessWidget {
         ),
         if (showText) ...[
           const SizedBox(width: 16),
-          Text(
-            'OpenDraft',
-            style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-              fontWeight: FontWeight.bold,
-              color: colorScheme.onSurface,
-              letterSpacing: -0.5,
+          Flexible(
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Text(
+                'OpenDraft',
+                style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                  fontWeight: FontWeight.bold,
+                  color: colorScheme.onSurface,
+                  letterSpacing: -0.5,
+                ),
+              ),
             ),
           ),
         ],

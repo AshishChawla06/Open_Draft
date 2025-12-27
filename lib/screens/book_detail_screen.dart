@@ -233,11 +233,13 @@ class _BookDetailScreenState extends State<BookDetailScreen> {
                     Expanded(
                       flex: 3,
                       child: Column(
+                        mainAxisSize: MainAxisSize.min,
                         crossAxisAlignment: CrossAxisAlignment.end,
                         children: [
                           // Action Buttons
                           Row(
                             mainAxisAlignment: MainAxisAlignment.end,
+                            mainAxisSize: MainAxisSize.min,
                             children: [
                               GestureDetector(
                                 onTap: _editDetails,
@@ -460,7 +462,7 @@ class _BookDetailScreenState extends State<BookDetailScreen> {
           size: 16,
           color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5),
         ),
-        const SizedBox(width: 12),
+        const SizedBox(width: 8),
         Expanded(
           child: Text(
             label,
@@ -469,9 +471,18 @@ class _BookDetailScreenState extends State<BookDetailScreen> {
                 context,
               ).colorScheme.onSurface.withValues(alpha: 0.7),
             ),
+            overflow: TextOverflow.ellipsis,
           ),
         ),
-        Text(value, style: const TextStyle(fontWeight: FontWeight.bold)),
+        Flexible(
+          child: Text(
+            value,
+            style: Theme.of(
+              context,
+            ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.bold),
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
       ],
     );
   }

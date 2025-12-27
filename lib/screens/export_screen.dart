@@ -134,16 +134,18 @@ class _ExportScreenState extends State<ExportScreen> {
               ),
               const SizedBox(height: 16),
 
-              Row(
-                children: [
-                  _buildFormatChip('PDF', ExportFormat.pdf),
-                  const SizedBox(width: 12),
-                  _buildFormatChip('Docx', ExportFormat.docx),
-                  const SizedBox(width: 12),
-                  _buildFormatChip('HTML', ExportFormat.html),
-                  const SizedBox(width: 12),
-                  _buildFormatChip('Text', ExportFormat.plainText),
-                ],
+              IntrinsicHeight(
+                child: Row(
+                  children: [
+                    _buildFormatChip('PDF', ExportFormat.pdf),
+                    const SizedBox(width: 12),
+                    _buildFormatChip('Docx', ExportFormat.docx),
+                    const SizedBox(width: 12),
+                    _buildFormatChip('HTML', ExportFormat.html),
+                    const SizedBox(width: 12),
+                    _buildFormatChip('Text', ExportFormat.plainText),
+                  ],
+                ),
               ),
 
               const SizedBox(height: 64),

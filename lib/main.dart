@@ -1,13 +1,22 @@
+import 'dart:io';
 import 'package:dynamic_color/dynamic_color.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_quill/flutter_quill.dart' as quill;
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
+import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'screens/splash_screen.dart';
 import 'services/theme_service.dart';
 
 void main() {
+  // Initialize sqflite_common_ffi for desktop platforms
+  if (!kIsWeb && (Platform.isWindows || Platform.isLinux || Platform.isMacOS)) {
+    sqfliteFfiInit();
+    databaseFactory = databaseFactoryFfi;
+  }
+
   runApp(
     MultiProvider(
       providers: [ChangeNotifierProvider(create: (_) => ThemeService())],

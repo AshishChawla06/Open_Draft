@@ -324,7 +324,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
                 size: 20,
               ),
               const SizedBox(width: 12),
-              Expanded(
+              Flexible(
                 child: Text(
                   log.title?.toUpperCase() ??
                       '${log.type.toUpperCase()} LOG'.toUpperCase(),
@@ -363,7 +363,7 @@ class _ReaderScreenState extends State<ReaderScreen> {
                   fontFamily: _currentTheme.fontFamily,
                 ),
               ),
-              Expanded(
+              Flexible(
                 child: Text(
                   entry.content,
                   style: TextStyle(

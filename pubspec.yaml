@@ -48,10 +48,13 @@ dependencies:
   
   # Image Handling
   image_picker: ^1.1.2
+  file_picker: ^8.1.4
   image: ^4.2.0
   
   # Local Storage
   sqflite: ^2.3.3+2
+  sqflite_common_ffi: ^2.3.4
+  sqlite3_flutter_libs: ^0.5.24  # Provides native sqlite3 library for desktop
   shared_preferences: ^2.3.3
   
   # EPUB & Archive
@@ -74,6 +77,7 @@ dependencies:
   logger: ^2.6.2
   palette_generator: ^0.3.3+7
   flutter_svg: ^2.2.3
+  intl: ^0.20.2
 dev_dependencies:
   flutter_test:
     sdk: flutter

@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:file_picker/file_picker.dart';
 import 'package:image/image.dart' as img;
 import 'package:path_provider/path_provider.dart';
 import 'package:flutter/foundation.dart';
@@ -13,28 +14,21 @@ class ImageService {
   static Future<XFile?> pickImage() async {
     try {
       if (kIsWeb) {
-        // For web, use a simpler approach that's more compatible with Edge
-        // The image_picker_for_web has issues in some browsers
+        // For web, use image_picker
         try {
           final XFile? pickedFile = await _picker.pickImage(
             source: ImageSource.gallery,
-            // Don't specify any options on web - let the browser handle it
           );
-
           if (pickedFile != null) {
             print('Image picked successfully: ${pickedFile.name}');
           }
-
           return pickedFile;
         } catch (webError) {
           print('Web image picker error: $webError');
-          print('Error type: ${webError.runtimeType}');
-          // On web, if the picker fails, it might be due to browser restrictions
-          // or user cancellation. Return null gracefully.
           return null;
         }
-      } else {
-        // On mobile, use the full feature set
+      } else if (Platform.isAndroid || Platform.isIOS) {
+        // On mobile, use image_picker with full feature set
         final XFile? pickedFile = await _picker.pickImage(
           source: ImageSource.gallery,
           maxWidth: 1200,
@@ -42,10 +36,22 @@ class ImageService {
           imageQuality: 85,
         );
         return pickedFile;
+      } else {
+        // On desktop (Windows/macOS/Linux), use file_picker
+        final result = await FilePicker.platform.pickFiles(
+          type: FileType.image,
+          allowMultiple: false,
+        );
+
+        if (result != null && result.files.single.path != null) {
+          final path = result.files.single.path!;
+          print('Image picked successfully (desktop): $path');
+          return XFile(path);
+        }
+        return null;
       }
     } catch (e) {
       print('Error picking image: $e');
-      print('Error type: ${e.runtimeType}');
       return null;
     }
   }
