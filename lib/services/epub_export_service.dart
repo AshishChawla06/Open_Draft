@@ -3,6 +3,7 @@ import 'package:archive/archive_io.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 import '../models/book.dart';
+import '../models/chapter.dart';
 
 class EpubExportService {
   /// Export a book to EPUB format
@@ -172,7 +173,7 @@ class EpubExportService {
 </html>''';
   }
 
-  static String _generateChapterHtml(chapter) {
+  static String _generateChapterHtml(Chapter chapter) {
     final paragraphs = chapter.content
         .split('\n\n')
         .where((p) => p.trim().isNotEmpty)

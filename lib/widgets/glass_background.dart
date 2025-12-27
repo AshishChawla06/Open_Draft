@@ -131,14 +131,14 @@ class _GlassBackgroundState extends State<GlassBackground> {
         highlightOpacity = 0.07;
         grainOpacity = 0.45;
       } else if (bgTheme != 'default') {
-        bg1 = _colorToHex(activeTint.withOpacity(0.1));
+        bg1 = _colorToHex(activeTint.withValues(alpha: 0.1));
         bg2 = _colorToHex(colorScheme.surface);
         primary1 = _colorToHex(activeTint);
-        primary2 = _colorToHex(activeTint.withOpacity(0.5));
+        primary2 = _colorToHex(activeTint.withValues(alpha: 0.5));
         secondary1 = _colorToHex(colorScheme.secondary);
         secondary2 = _colorToHex(colorScheme.tertiary);
         tertiary1 = _colorToHex(colorScheme.tertiary);
-        tertiary2 = _colorToHex(activeTint.withOpacity(0.1));
+        tertiary2 = _colorToHex(activeTint.withValues(alpha: 0.1));
         highlightOpacity = 0.08;
         grainOpacity = 0.4;
       }

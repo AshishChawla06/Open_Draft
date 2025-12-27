@@ -31,11 +31,11 @@ class ChaptersSidebar extends StatelessWidget {
       decoration: BoxDecoration(
         border: Border(
           right: BorderSide(
-            color: Theme.of(context).dividerColor.withOpacity(0.1),
+            color: Theme.of(context).dividerColor.withValues(alpha: 0.1),
             width: 1,
           ),
         ),
-        color: Theme.of(context).scaffoldBackgroundColor.withOpacity(0.5),
+        color: Theme.of(context).scaffoldBackgroundColor.withValues(alpha: 0.5),
       ),
       child: Column(
         children: [
@@ -141,7 +141,7 @@ class ChaptersSidebar extends StatelessWidget {
                   selected: isSelected,
                   selectedTileColor: Theme.of(
                     context,
-                  ).colorScheme.primary.withOpacity(0.1),
+                  ).colorScheme.primary.withValues(alpha: 0.1),
                   onTap: () {
                     if (!isSelected) {
                       // Navigate to chapter

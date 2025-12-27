@@ -38,6 +38,10 @@ class Chapter {
     String? coverUrl,
     SCPSectionType? sectionType,
     List<Redaction>? redactions,
+    bool clearCover = false,
+    bool clearWordCountGoal = false,
+    bool clearSectionType = false,
+    bool clearRedactions = false,
   }) {
     return Chapter(
       id: id ?? this.id,
@@ -46,10 +50,12 @@ class Chapter {
       order: order ?? this.order,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
-      wordCountGoal: wordCountGoal ?? this.wordCountGoal,
-      coverUrl: coverUrl ?? this.coverUrl,
-      sectionType: sectionType ?? this.sectionType,
-      redactions: redactions ?? this.redactions,
+      wordCountGoal: clearWordCountGoal
+          ? null
+          : (wordCountGoal ?? this.wordCountGoal),
+      coverUrl: clearCover ? null : (coverUrl ?? this.coverUrl),
+      sectionType: clearSectionType ? null : (sectionType ?? this.sectionType),
+      redactions: clearRedactions ? null : (redactions ?? this.redactions),
     );
   }
 }

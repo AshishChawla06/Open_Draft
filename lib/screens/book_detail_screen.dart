@@ -144,42 +144,68 @@ class _BookDetailScreenState extends State<BookDetailScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     // Book Cover
-                    Hero(
-                      tag: 'book-cover-${_currentBook.id}',
-                      child: _currentBook.coverUrl != null
-                          ? ClipRRect(
-                              borderRadius: BorderRadius.circular(16),
-                              child: kIsWeb
-                                  ? Image.network(
-                                      _currentBook.coverUrl!,
-                                      width: 140, // Slightly larger
-                                      height: 200,
-                                      fit: BoxFit.cover,
+                    GestureDetector(
+                      onTap: _showCoverOptions,
+                      child: MouseRegion(
+                        cursor: SystemMouseCursors.click,
+                        child: Stack(
+                          children: [
+                            Hero(
+                              tag: 'book-cover-${_currentBook.id}',
+                              child: _currentBook.coverUrl != null
+                                  ? ClipRRect(
+                                      borderRadius: BorderRadius.circular(16),
+                                      child: kIsWeb
+                                          ? Image.network(
+                                              _currentBook.coverUrl!,
+                                              width: 140,
+                                              height: 200,
+                                              fit: BoxFit.cover,
+                                            )
+                                          : Image.file(
+                                              File(_currentBook.coverUrl!),
+                                              width: 140,
+                                              height: 200,
+                                              fit: BoxFit.cover,
+                                            ),
                                     )
-                                  : Image.file(
-                                      File(_currentBook.coverUrl!),
+                                  : Container(
                                       width: 140,
                                       height: 200,
-                                      fit: BoxFit.cover,
+                                      decoration: BoxDecoration(
+                                        color: colorScheme.onSurface.withValues(
+                                          alpha: 0.1,
+                                        ),
+                                        borderRadius: BorderRadius.circular(16),
+                                      ),
+                                      child: Icon(
+                                        Icons.book,
+                                        size: 48,
+                                        color: colorScheme.onSurface.withValues(
+                                          alpha: 0.3,
+                                        ),
+                                      ),
                                     ),
-                            )
-                          : Container(
-                              width: 140,
-                              height: 200,
-                              decoration: BoxDecoration(
-                                color: colorScheme.onSurface.withValues(
-                                  alpha: 0.1,
+                            ),
+                            Positioned(
+                              right: 8,
+                              bottom: 8,
+                              child: Container(
+                                padding: const EdgeInsets.all(4),
+                                decoration: BoxDecoration(
+                                  color: Colors.black54,
+                                  borderRadius: BorderRadius.circular(8),
                                 ),
-                                borderRadius: BorderRadius.circular(16),
-                              ),
-                              child: Icon(
-                                Icons.book,
-                                size: 48,
-                                color: colorScheme.onSurface.withValues(
-                                  alpha: 0.3,
+                                child: const Icon(
+                                  Icons.camera_alt,
+                                  size: 16,
+                                  color: Colors.white,
                                 ),
                               ),
                             ),
+                          ],
+                        ),
+                      ),
                     ),
                     const SizedBox(width: 32),
 
@@ -613,5 +639,75 @@ class _BookDetailScreenState extends State<BookDetailScreen> {
       ),
     );
     await _reloadBook();
+  }
+
+  void _showCoverOptions() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (context) => GlassContainer(
+        padding: const EdgeInsets.symmetric(vertical: 24),
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.photo_library_outlined),
+              title: const Text('Change Cover'),
+              onTap: () {
+                Navigator.pop(context);
+                _changeCover();
+              },
+            ),
+            if (_currentBook.coverUrl != null)
+              ListTile(
+                leading: const Icon(Icons.delete_outline, color: Colors.red),
+                title: const Text(
+                  'Remove Cover',
+                  style: TextStyle(color: Colors.red),
+                ),
+                onTap: () {
+                  Navigator.pop(context);
+                  _removeCover();
+                },
+              ),
+            ListTile(
+              leading: const Icon(Icons.close),
+              title: const Text('Cancel'),
+              onTap: () => Navigator.pop(context),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _changeCover() async {
+    final pickedFile = await ImageService.pickImage();
+    if (pickedFile != null) {
+      // If we have an old cover, we could delete it, but saveImage uses ID as name, so it overwrites anyway.
+      final savedPath = await ImageService.saveImage(
+        pickedFile,
+        _currentBook.id,
+      );
+
+      if (savedPath != null) {
+        final updatedBook = _currentBook.copyWith(coverUrl: savedPath);
+        await DatabaseService.updateBook(updatedBook);
+        await _reloadBook();
+      }
+    }
+  }
+
+  Future<void> _removeCover() async {
+    if (_currentBook.coverUrl != null) {
+      await ImageService.deleteImage(_currentBook.coverUrl!);
+      final updatedBook = _currentBook.copyWith(clearCover: true);
+      await DatabaseService.updateBook(updatedBook);
+      await _reloadBook();
+      setState(() {
+        _tintColor = null; // Reset tint when cover is removed
+      });
+    }
   }
 }

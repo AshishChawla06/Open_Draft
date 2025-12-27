@@ -5,6 +5,7 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_quill/flutter_quill.dart' as quill;
+import 'package:logger/logger.dart';
 
 import '../models/book.dart';
 import '../models/chapter.dart';
@@ -40,6 +41,9 @@ class _EditorScreenState extends State<EditorScreen> {
   late quill.QuillController _quillController;
   late Chapter _chapter;
   late Book _book;
+  final Logger _logger = Logger();
+  late FocusNode _focusNode;
+  final ScrollController _scrollController = ScrollController();
 
   bool _hasUnsavedChanges = false;
   Timer? _autosaveTimer;
@@ -50,6 +54,7 @@ class _EditorScreenState extends State<EditorScreen> {
   bool _showGrammar = false;
   bool _showBookmarks = false;
   bool _isDistractionFree = false;
+  bool _isToolbarCollapsed = false;
 
   @override
   void initState() {
@@ -57,6 +62,7 @@ class _EditorScreenState extends State<EditorScreen> {
     _chapter = widget.chapter;
     _book = widget.book;
     _titleController = TextEditingController(text: _chapter.title);
+    _focusNode = FocusNode();
 
     _initQuillController();
 
@@ -68,14 +74,14 @@ class _EditorScreenState extends State<EditorScreen> {
 
   void _initQuillController() {
     try {
-      print('Initializing editor with content: ${_chapter.content}');
+      _logger.d('Initializing editor with content: ${_chapter.content}');
       if (_chapter.content.isNotEmpty) {
         if (_chapter.content.startsWith('[') ||
             _chapter.content.startsWith('{')) {
           try {
             final json = jsonDecode(_chapter.content);
-            print('Decoded JSON: $json');
-            print('JSON type: ${json.runtimeType}');
+            _logger.d('Decoded JSON: $json');
+            _logger.d('JSON type: ${json.runtimeType}');
 
             // The saved format is {"ops": [...]}
             // Extract the ops list for Document.fromJson
@@ -84,10 +90,12 @@ class _EditorScreenState extends State<EditorScreen> {
               document: quill.Document.fromJson(ops),
               selection: const TextSelection.collapsed(offset: 0),
             );
-            print('Successfully loaded Quill document from JSON');
+            _logger.d('Successfully loaded Quill document from JSON');
           } catch (e, stackTrace) {
-            print('ERROR loading Quill document: $e');
-            print('Stack trace: $stackTrace');
+            _logger.e(
+              'ERROR loading Quill document: $e',
+              stackTrace: stackTrace,
+            );
             // Fallback to plain text
             _quillController = quill.QuillController(
               document: quill.Document()..insert(0, _chapter.content),
@@ -101,12 +109,11 @@ class _EditorScreenState extends State<EditorScreen> {
           );
         }
       } else {
-        print('Content is empty, creating basic controller');
+        _logger.d('Content is empty, creating basic controller');
         _quillController = quill.QuillController.basic();
       }
     } catch (e, stackTrace) {
-      print('ERROR in _initQuillController: $e');
-      print('Stack trace: $stackTrace');
+      _logger.e('ERROR in _initQuillController: $e', stackTrace: stackTrace);
       _quillController = quill.QuillController(
         document: quill.Document()..insert(0, _chapter.content),
         selection: const TextSelection.collapsed(offset: 0),
@@ -115,7 +122,7 @@ class _EditorScreenState extends State<EditorScreen> {
   }
 
   void _onTextChanged() {
-    print('!!! TEXT CHANGED !!! hasUnsavedChanges: $_hasUnsavedChanges');
+    _logger.d('!!! TEXT CHANGED !!! hasUnsavedChanges: $_hasUnsavedChanges');
     if (!_hasUnsavedChanges) {
       setState(() => _hasUnsavedChanges = true);
     }
@@ -129,6 +136,8 @@ class _EditorScreenState extends State<EditorScreen> {
     _autosaveTimer?.cancel();
     _titleController.dispose();
     _quillController.dispose();
+    _focusNode.dispose();
+    _scrollController.dispose();
     super.dispose();
   }
 
@@ -141,7 +150,7 @@ class _EditorScreenState extends State<EditorScreen> {
       final deltaOps = _quillController.document.toDelta().toJson();
       // Wrap delta operations in the format expected by Document.fromJson
       final content = jsonEncode({'ops': deltaOps});
-      print('!!! SAVING CONTENT !!!: $content'); // Distinct debug log
+      _logger.d('!!! SAVING CONTENT !!!: $content'); // Distinct debug log
       final updatedChapter = _chapter.copyWith(
         title: _titleController.text.trim(),
         content: content,
@@ -335,7 +344,7 @@ class _EditorScreenState extends State<EditorScreen> {
           await _saveChapter();
         }
 
-        if (mounted) {
+        if (context.mounted) {
           Navigator.pop(context);
         }
       },
@@ -389,7 +398,15 @@ class _EditorScreenState extends State<EditorScreen> {
                         if (!_isDistractionFree) const SizedBox(height: 60),
 
                         // Toolbar (Validation placeholder/Edit mode)
-                        if (!_isDistractionFree) _buildToolbar(),
+                        if (!_isDistractionFree)
+                          AnimatedCrossFade(
+                            firstChild: _buildToolbar(),
+                            secondChild: const SizedBox.shrink(),
+                            crossFadeState: _isToolbarCollapsed
+                                ? CrossFadeState.showSecond
+                                : CrossFadeState.showFirst,
+                            duration: const Duration(milliseconds: 200),
+                          ),
 
                         // Progress Bar
                         if (!_isDistractionFree &&
@@ -688,6 +705,16 @@ class _EditorScreenState extends State<EditorScreen> {
           }),
           tooltip: 'Toggle Bookmarks',
         ),
+        IconButton(
+          icon: Icon(
+            _isToolbarCollapsed
+                ? Icons.keyboard_arrow_down
+                : Icons.keyboard_arrow_up,
+          ),
+          onPressed: () =>
+              setState(() => _isToolbarCollapsed = !_isToolbarCollapsed),
+          tooltip: _isToolbarCollapsed ? 'Show Toolbar' : 'Hide Toolbar',
+        ),
         PopupMenuButton<String>(
           onSelected: (value) async {
             switch (value) {
@@ -896,44 +923,61 @@ class _EditorScreenState extends State<EditorScreen> {
       padding: const EdgeInsets.all(20),
       color: Theme.of(context).colorScheme.surface,
       opacity: 0.1,
-      child: Column(
-        children: [
-          if (_chapter.coverUrl != null)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 16),
-              child: SizedBox(
-                height: 150,
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(8),
-                  child: kIsWeb
-                      ? Image.network(_chapter.coverUrl!, fit: BoxFit.cover)
-                      : Image.file(File(_chapter.coverUrl!), fit: BoxFit.cover),
+      child: CustomScrollView(
+        slivers: [
+          SliverToBoxAdapter(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (_chapter.coverUrl != null)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 16),
+                    child: SizedBox(
+                      height: 150,
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(8),
+                        child: kIsWeb
+                            ? Image.network(
+                                _chapter.coverUrl!,
+                                fit: BoxFit.cover,
+                              )
+                            : Image.file(
+                                File(_chapter.coverUrl!),
+                                fit: BoxFit.cover,
+                              ),
+                      ),
+                    ),
+                  ),
+
+                TextField(
+                  controller: _titleController,
+                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+                  decoration: InputDecoration(
+                    hintText: 'Chapter Title',
+                    border: InputBorder.none,
+                    hintStyle: Theme.of(context).textTheme.headlineSmall
+                        ?.copyWith(
+                          fontWeight: FontWeight.bold,
+                          color: Theme.of(
+                            context,
+                          ).colorScheme.onSurface.withValues(alpha: 0.3),
+                        ),
+                  ),
                 ),
-              ),
-            ),
-
-          TextField(
-            controller: _titleController,
-            style: Theme.of(
-              context,
-            ).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
-            decoration: InputDecoration(
-              hintText: 'Chapter Title',
-              border: InputBorder.none,
-              hintStyle: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                fontWeight: FontWeight.bold,
-                color: Theme.of(
-                  context,
-                ).colorScheme.onSurface.withValues(alpha: 0.3),
-              ),
+                const Divider(),
+                const SizedBox(height: 8),
+              ],
             ),
           ),
-          const Divider(),
-          const SizedBox(height: 8),
-
-          Expanded(
-            child: quill.QuillEditor.basic(controller: _quillController),
+          SliverToBoxAdapter(
+            child: quill.QuillEditor.basic(
+              controller: _quillController,
+              focusNode: _focusNode,
+            ),
           ),
+          const SliverToBoxAdapter(child: SizedBox(height: 100)),
         ],
       ),
     );

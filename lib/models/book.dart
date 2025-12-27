@@ -44,19 +44,23 @@ class Book {
     SCPMetadata? scpMetadata,
     int? themeColor,
     List<String>? tags,
+    bool clearCover = false,
+    bool clearDescription = false,
+    bool clearScpMetadata = false,
+    bool clearThemeColor = false,
   }) {
     return Book(
       id: id ?? this.id,
       title: title ?? this.title,
       author: author ?? this.author,
-      description: description ?? this.description,
-      coverUrl: coverUrl ?? this.coverUrl,
+      description: clearDescription ? null : (description ?? this.description),
+      coverUrl: clearCover ? null : (coverUrl ?? this.coverUrl),
       chapters: chapters ?? this.chapters,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
       documentType: documentType ?? this.documentType,
-      scpMetadata: scpMetadata ?? this.scpMetadata,
-      themeColor: themeColor ?? this.themeColor,
+      scpMetadata: clearScpMetadata ? null : (scpMetadata ?? this.scpMetadata),
+      themeColor: clearThemeColor ? null : (themeColor ?? this.themeColor),
       tags: tags ?? this.tags,
     );
   }

@@ -47,6 +47,7 @@ class _SCPEditorScreenState extends State<SCPEditorScreen> {
   bool _showChapters = false;
   bool _showNotes = false;
   bool _isDistractionFree = false;
+  bool _isToolbarCollapsed = false;
   late Chapter _chapter;
   late Book _book;
   Timer? _saveDebounce;
@@ -603,6 +604,19 @@ class _SCPEditorScreenState extends State<SCPEditorScreen> {
                   });
                 },
               ),
+              IconButton(
+                icon: Icon(
+                  _isToolbarCollapsed
+                      ? Icons.keyboard_arrow_down
+                      : Icons.keyboard_arrow_up,
+                  size: 18,
+                ),
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(minWidth: 32),
+                tooltip: _isToolbarCollapsed ? 'Show Toolbar' : 'Hide Toolbar',
+                onPressed: () =>
+                    setState(() => _isToolbarCollapsed = !_isToolbarCollapsed),
+              ),
             ],
           ),
         ),
@@ -719,293 +733,326 @@ class _SCPEditorScreenState extends State<SCPEditorScreen> {
         Expanded(
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 24),
-            child: ListView(
-              padding: const EdgeInsets.symmetric(vertical: 24),
-              children: [
-                if (!_isDistractionFree) ...[
-                  // Custom Toolbar Row
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 8),
-                    child: SingleChildScrollView(
-                      scrollDirection: Axis.horizontal,
-                      child: Row(
+            child: CustomScrollView(
+              slivers: [
+                if (!_isDistractionFree)
+                  SliverToBoxAdapter(
+                    child: AnimatedCrossFade(
+                      duration: const Duration(milliseconds: 200),
+                      crossFadeState: _isToolbarCollapsed
+                          ? CrossFadeState.showSecond
+                          : CrossFadeState.showFirst,
+                      secondChild: const SizedBox(height: 16),
+                      firstChild: Column(
                         children: [
-                          Text(
-                            'TOOLS:',
-                            style: TextStyle(
-                              color: const Color(
-                                0xFFFF4444,
-                              ).withValues(alpha: 0.7),
-                              fontSize: 12,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          IconButton(
-                            icon: const Icon(
-                              Icons.auto_fix_high,
-                              color: Color(0xFFFF4444),
-                            ),
-                            tooltip: 'Redaction Tools',
-                            onPressed: () {
-                              final renderBox =
-                                  context.findRenderObject() as RenderBox;
-                              final offset = renderBox.localToGlobal(
-                                Offset.zero,
-                              );
-                              showMenu<Color>(
-                                context: context,
-                                position: RelativeRect.fromLTRB(
-                                  offset.dx + 100,
-                                  offset.dy + 200,
-                                  offset.dx + 200,
-                                  offset.dy + 300,
-                                ),
-                                items: [
-                                  PopupMenuItem(
-                                    value: Colors.black,
-                                    child: Row(
-                                      children: [
-                                        Container(
-                                          width: 16,
-                                          height: 16,
-                                          decoration: BoxDecoration(
-                                            color: Colors.black,
-                                            border: Border.all(
-                                              color: Colors.white24,
+                          // Custom Toolbar Row
+                          Padding(
+                            padding: const EdgeInsets.only(top: 16, bottom: 8),
+                            child: SingleChildScrollView(
+                              scrollDirection: Axis.horizontal,
+                              child: Row(
+                                children: [
+                                  Text(
+                                    'TOOLS:',
+                                    style: TextStyle(
+                                      color: const Color(
+                                        0xFFFF4444,
+                                      ).withValues(alpha: 0.7),
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  IconButton(
+                                    icon: const Icon(
+                                      Icons.auto_fix_high,
+                                      color: Color(0xFFFF4444),
+                                    ),
+                                    tooltip: 'Redaction Tools',
+                                    onPressed: () {
+                                      final renderBox =
+                                          context.findRenderObject()
+                                              as RenderBox;
+                                      final offset = renderBox.localToGlobal(
+                                        Offset.zero,
+                                      );
+                                      showMenu<Color>(
+                                        context: context,
+                                        position: RelativeRect.fromLTRB(
+                                          offset.dx + 100,
+                                          offset.dy + 200,
+                                          offset.dx + 200,
+                                          offset.dy + 300,
+                                        ),
+                                        items: [
+                                          PopupMenuItem(
+                                            value: Colors.black,
+                                            child: Row(
+                                              children: [
+                                                Container(
+                                                  width: 16,
+                                                  height: 16,
+                                                  decoration: BoxDecoration(
+                                                    color: Colors.black,
+                                                    border: Border.all(
+                                                      color: Colors.white24,
+                                                    ),
+                                                  ),
+                                                  margin: const EdgeInsets.only(
+                                                    right: 8,
+                                                  ),
+                                                ),
+                                                const Text('Black Block'),
+                                              ],
                                             ),
                                           ),
-                                          margin: const EdgeInsets.only(
-                                            right: 8,
-                                          ),
-                                        ),
-                                        const Text('Black Block'),
-                                      ],
-                                    ),
-                                  ),
-                                  PopupMenuItem(
-                                    value: Colors.white,
-                                    child: Row(
-                                      children: [
-                                        Container(
-                                          width: 16,
-                                          height: 16,
-                                          decoration: BoxDecoration(
-                                            color: Colors.white,
-                                            border: Border.all(
-                                              color: Colors.black26,
+                                          PopupMenuItem(
+                                            value: Colors.white,
+                                            child: Row(
+                                              children: [
+                                                Container(
+                                                  width: 16,
+                                                  height: 16,
+                                                  decoration: BoxDecoration(
+                                                    color: Colors.white,
+                                                    border: Border.all(
+                                                      color: Colors.black26,
+                                                    ),
+                                                  ),
+                                                  margin: const EdgeInsets.only(
+                                                    right: 8,
+                                                  ),
+                                                ),
+                                                const Text('White Block'),
+                                              ],
                                             ),
                                           ),
-                                          margin: const EdgeInsets.only(
-                                            right: 8,
+                                          PopupMenuItem(
+                                            value: Colors.grey,
+                                            child: Row(
+                                              children: [
+                                                Container(
+                                                  width: 16,
+                                                  height: 16,
+                                                  color: Colors.grey,
+                                                  margin: const EdgeInsets.only(
+                                                    right: 8,
+                                                  ),
+                                                ),
+                                                const Text('Gray Block'),
+                                              ],
+                                            ),
                                           ),
-                                        ),
-                                        const Text('White Block'),
-                                      ],
-                                    ),
-                                  ),
-                                  PopupMenuItem(
-                                    value: Colors.grey,
-                                    child: Row(
-                                      children: [
-                                        Container(
-                                          width: 16,
-                                          height: 16,
-                                          color: Colors.grey,
-                                          margin: const EdgeInsets.only(
-                                            right: 8,
+                                          const PopupMenuItem(
+                                            value: Colors.transparent,
+                                            child: Row(
+                                              children: [
+                                                Icon(Icons.close, size: 16),
+                                                SizedBox(width: 8),
+                                                Text('Clear Redaction'),
+                                              ],
+                                            ),
                                           ),
-                                        ),
-                                        const Text('Gray Block'),
-                                      ],
-                                    ),
-                                  ),
-                                  const PopupMenuItem(
-                                    value: Colors.transparent,
-                                    child: Row(
-                                      children: [
-                                        Icon(Icons.close, size: 16),
-                                        SizedBox(width: 8),
-                                        Text('Clear Redaction'),
-                                      ],
-                                    ),
+                                        ],
+                                      ).then((value) {
+                                        if (value != null) {
+                                          _applyRedaction(value);
+                                        }
+                                      });
+                                    },
                                   ),
                                 ],
-                              ).then((value) {
-                                if (value != null) {
-                                  _applyRedaction(value);
-                                }
-                              });
-                            },
+                              ),
+                            ),
+                          ),
+
+                          // Quill Toolbar
+                          Padding(
+                            padding: const EdgeInsets.only(bottom: 24),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(vertical: 8),
+                              decoration: const BoxDecoration(
+                                border: Border(
+                                  bottom: BorderSide(color: Color(0xFF333333)),
+                                ),
+                              ),
+                              child: SingleChildScrollView(
+                                scrollDirection: Axis.horizontal,
+                                child: quill.QuillSimpleToolbar(
+                                  controller: _quillController,
+                                ),
+                              ),
+                            ),
                           ),
                         ],
                       ),
                     ),
                   ),
 
-                  // Quill Toolbar
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 24),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(vertical: 8),
-                      decoration: const BoxDecoration(
-                        border: Border(
-                          bottom: BorderSide(color: Color(0xFF333333)),
+                SliverToBoxAdapter(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Title
+                      if (!_isDistractionFree) ...[
+                        TextField(
+                          controller: _titleController,
+                          scrollPadding: EdgeInsets.zero,
+                          style: Theme.of(context).textTheme.headlineMedium
+                              ?.copyWith(
+                                color: const Color(0xFFFF4444), // SCP Red
+                                fontFamily: 'Courier Prime',
+                                fontWeight: FontWeight.bold,
+                              ),
+                          decoration: InputDecoration(
+                            border: InputBorder.none,
+                            hintText: 'Containment Procedures Title',
+                            hintStyle: TextStyle(
+                              color: isDark ? Colors.white24 : Colors.black26,
+                            ),
+                          ),
                         ),
-                      ),
-                      child: SingleChildScrollView(
-                        scrollDirection: Axis.horizontal,
-                        child: quill.QuillSimpleToolbar(
+                        const Divider(color: Color(0xFFFF4444)),
+                        const SizedBox(height: 8),
+                        Align(
+                          alignment: Alignment.centerLeft,
+                          child: TextButton.icon(
+                            onPressed: _pickAddendumImage,
+                            icon: const Icon(Icons.add_a_photo, size: 18),
+                            label: const Text('Add Image to Addendum'),
+                            style: TextButton.styleFrom(
+                              foregroundColor: scpRed,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                      ],
+
+                      // Quill Editor
+                      Theme(
+                        data: Theme.of(context).copyWith(
+                          textSelectionTheme: const TextSelectionThemeData(
+                            cursorColor: Color(0xFFFF4444),
+                            selectionColor: Color(0x44FF4444),
+                            selectionHandleColor: Color(0xFFFF4444),
+                          ),
+                        ),
+                        child: quill.QuillEditor.basic(
                           controller: _quillController,
+                          focusNode: _focusNode,
                         ),
                       ),
-                    ),
-                  ),
-                ],
 
-                // Title
-                if (!_isDistractionFree) ...[
-                  TextField(
-                    controller: _titleController,
-                    scrollPadding: EdgeInsets.zero,
-                    style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                      color: const Color(0xFFFF4444), // SCP Red
-                      fontFamily: 'Courier Prime',
-                      fontWeight: FontWeight.bold,
-                    ),
-                    decoration: InputDecoration(
-                      border: InputBorder.none,
-                      hintText: 'Containment Procedures Title',
-                      hintStyle: TextStyle(
-                        color: isDark ? Colors.white24 : Colors.black26,
-                      ),
-                    ),
-                  ),
-                  const Divider(color: Color(0xFFFF4444)),
-                  const SizedBox(height: 8),
-                  Align(
-                    alignment: Alignment.centerLeft,
-                    child: TextButton.icon(
-                      onPressed: _pickAddendumImage,
-                      icon: const Icon(Icons.add_a_photo, size: 18),
-                      label: const Text('Add Image to Addendum'),
-                      style: TextButton.styleFrom(foregroundColor: scpRed),
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                ],
+                      if (_chapter.coverUrl != null &&
+                          _chapter.coverUrl!.isNotEmpty) ...[
+                        const SizedBox(height: 32),
+                        Stack(
+                          children: [
+                            ClipRRect(
+                              borderRadius: BorderRadius.circular(8),
+                              child: kIsWeb
+                                  ? Image.network(
+                                      _chapter.coverUrl!,
+                                      width: double.infinity,
+                                      fit: BoxFit.fitWidth,
+                                    )
+                                  : Image.file(
+                                      File(_chapter.coverUrl!),
+                                      width: double.infinity,
+                                      fit: BoxFit.fitWidth,
+                                    ),
+                            ),
+                            Positioned(
+                              right: 8,
+                              top: 8,
+                              child: CircleAvatar(
+                                backgroundColor: Colors.black54,
+                                child: IconButton(
+                                  icon: const Icon(
+                                    Icons.delete,
+                                    color: Colors.white,
+                                  ),
+                                  onPressed: _removeAddendumImage,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
 
-                // Quill Editor
-                Theme(
-                  data: Theme.of(context).copyWith(
-                    textSelectionTheme: const TextSelectionThemeData(
-                      cursorColor: Color(0xFFFF4444),
-                      selectionColor: Color(0x44FF4444),
-                      selectionHandleColor: Color(0xFFFF4444),
-                    ),
-                  ),
-                  child: quill.QuillEditor.basic(
-                    controller: _quillController,
-                    focusNode: _focusNode,
+                      const SizedBox(height: 48),
+
+                      if (!_isDistractionFree) ...[
+                        const Divider(color: Color(0xFF333333)),
+                        const SizedBox(height: 16),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            const Text(
+                              'ATTACHED LOGS & ADDENDA',
+                              style: TextStyle(
+                                color: Color(0xFFFF4444),
+                                fontWeight: FontWeight.bold,
+                                letterSpacing: 1.2,
+                              ),
+                            ),
+                            PopupMenuButton<String>(
+                              icon: const Icon(
+                                Icons.add_circle_outline,
+                                color: Color(0xFFFF4444),
+                              ),
+                              tooltip: 'Add Log',
+                              onSelected: _addNewLog,
+                              itemBuilder: (context) => [
+                                const PopupMenuItem(
+                                  value: 'interview',
+                                  child: Text('Interview Log'),
+                                ),
+                                const PopupMenuItem(
+                                  value: 'incident',
+                                  child: Text('Incident Report'),
+                                ),
+                                const PopupMenuItem(
+                                  value: 'test',
+                                  child: Text('Test Record'),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 16),
+                      ],
+                    ],
                   ),
                 ),
 
-                if (_chapter.coverUrl != null &&
-                    _chapter.coverUrl!.isNotEmpty) ...[
-                  const SizedBox(height: 32),
-                  Stack(
-                    children: [
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(8),
-                        child: kIsWeb
-                            ? Image.network(
-                                _chapter.coverUrl!,
-                                width: double.infinity,
-                                fit: BoxFit.fitWidth,
-                              )
-                            : Image.file(
-                                File(_chapter.coverUrl!),
-                                width: double.infinity,
-                                fit: BoxFit.fitWidth,
-                              ),
-                      ),
-                      Positioned(
-                        right: 8,
-                        top: 8,
-                        child: CircleAvatar(
-                          backgroundColor: Colors.black54,
-                          child: IconButton(
-                            icon: const Icon(Icons.delete, color: Colors.white),
-                            onPressed: _removeAddendumImage,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-
-                const SizedBox(height: 48),
-
                 if (!_isDistractionFree) ...[
-                  const Divider(color: Color(0xFF333333)),
-                  const SizedBox(height: 16),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      const Text(
-                        'ATTACHED LOGS & ADDENDA',
-                        style: TextStyle(
-                          color: Color(0xFFFF4444),
-                          fontWeight: FontWeight.bold,
-                          letterSpacing: 1.2,
-                        ),
-                      ),
-                      PopupMenuButton<String>(
-                        icon: const Icon(
-                          Icons.add_circle_outline,
-                          color: Color(0xFFFF4444),
-                        ),
-                        tooltip: 'Add Log',
-                        onSelected: _addNewLog,
-                        itemBuilder: (context) => [
-                          const PopupMenuItem(
-                            value: 'interview',
-                            child: Text('Interview Log'),
-                          ),
-                          const PopupMenuItem(
-                            value: 'incident',
-                            child: Text('Incident Report'),
-                          ),
-                          const PopupMenuItem(
-                            value: 'test',
-                            child: Text('Test Record'),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
                   if (_logs.isEmpty)
-                    const Center(
-                      child: Padding(
-                        padding: EdgeInsets.all(32),
-                        child: Text(
-                          'No logs attached.',
-                          style: TextStyle(color: Colors.white24),
+                    const SliverToBoxAdapter(
+                      child: Center(
+                        child: Padding(
+                          padding: EdgeInsets.all(32),
+                          child: Text(
+                            'No logs attached.',
+                            style: TextStyle(color: Colors.white24),
+                          ),
                         ),
                       ),
                     )
                   else
-                    ..._logs.map(
-                      (log) => LogEditor(
-                        key: ValueKey(log.id),
-                        log: log,
-                        onUpdate: (updated) => _updateLog(updated),
-                        onDelete: () => _deleteLog(log.id),
-                      ),
+                    SliverList(
+                      delegate: SliverChildBuilderDelegate((context, index) {
+                        final log = _logs[index];
+                        return LogEditor(
+                          key: ValueKey(log.id),
+                          log: log,
+                          onUpdate: (updated) => _updateLog(updated),
+                          onDelete: () => _deleteLog(log.id),
+                        );
+                      }, childCount: _logs.length),
                     ),
-                  const SizedBox(height: 32),
                 ],
+                const SliverToBoxAdapter(child: SizedBox(height: 32)),
               ],
             ),
           ),

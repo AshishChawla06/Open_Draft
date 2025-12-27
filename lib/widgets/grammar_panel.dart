@@ -113,16 +113,15 @@ class _GrammarPanelState extends State<GrammarPanel> {
                           Icon(
                             Icons.check_circle_outline,
                             size: 48,
-                            color: Colors.green.withOpacity(0.5),
+                            color: Colors.green.withValues(alpha: 0.5),
                           ),
                           const SizedBox(height: 8),
                           Text(
                             'No issues found',
                             style: Theme.of(context).textTheme.bodyMedium
                                 ?.copyWith(
-                                  color: Theme.of(
-                                    context,
-                                  ).colorScheme.onSurface.withOpacity(0.5),
+                                  color: Theme.of(context).colorScheme.onSurface
+                                      .withValues(alpha: 0.5),
                                 ),
                           ),
                         ],

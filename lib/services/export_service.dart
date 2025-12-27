@@ -91,12 +91,13 @@ class ExportService {
                 final attrs = op['attributes'] as Map;
                 if (attrs['bold'] == true) {
                   buffer.write('**$text**');
-                } else if (attrs['italic'] == true)
+                } else if (attrs['italic'] == true) {
                   buffer.write('*$text*');
-                else if (attrs['header'] != null)
+                } else if (attrs['header'] != null) {
                   buffer.write('\n# $text');
-                else
+                } else {
                   buffer.write(text);
+                }
               } else {
                 buffer.write(text);
               }

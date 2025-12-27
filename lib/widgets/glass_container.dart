@@ -82,59 +82,64 @@ class _GlassContainerState extends State<GlassContainer> {
         ),
         child: ClipRRect(
           borderRadius: borderRadius,
-          child: BackdropFilter(
-            filter: ImageFilter.blur(sigmaX: widget.blur, sigmaY: widget.blur),
-            child: Container(
-              // Background Decoration (Base Layer)
-              decoration: BoxDecoration(
-                color: baseColor.withValues(alpha: widget.opacity),
-                borderRadius: borderRadius,
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [
-                    colorScheme.surface.withValues(
-                      alpha: widget.opacity + 0.05,
-                    ),
-                    colorScheme.surface.withValues(alpha: widget.opacity),
-                    colorScheme.surface.withValues(
-                      alpha: widget.opacity + 0.02,
-                    ),
-                  ],
-                  stops: const [0, 0.5, 1],
-                ),
+          child: RepaintBoundary(
+            child: BackdropFilter(
+              filter: ImageFilter.blur(
+                sigmaX: widget.blur,
+                sigmaY: widget.blur,
               ),
-              // Foreground Decoration (Border Layer - Top)
-              foregroundDecoration: BoxDecoration(
-                borderRadius: borderRadius,
-                border: Border.all(
-                  color: widget.enableGlow && _isHovered
-                      ? colorScheme.primary.withValues(alpha: 0.5)
-                      : (widget.borderColor ??
-                            colorScheme.onSurface.withValues(alpha: 0.08)),
-                  width: 1.0,
+              child: Container(
+                // Background Decoration (Base Layer)
+                decoration: BoxDecoration(
+                  color: baseColor.withValues(alpha: widget.opacity),
+                  borderRadius: borderRadius,
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      colorScheme.surface.withValues(
+                        alpha: widget.opacity + 0.05,
+                      ),
+                      colorScheme.surface.withValues(alpha: widget.opacity),
+                      colorScheme.surface.withValues(
+                        alpha: widget.opacity + 0.02,
+                      ),
+                    ],
+                    stops: const [0, 0.5, 1],
+                  ),
                 ),
-              ),
-              child: Stack(
-                fit: StackFit.passthrough,
-                children: [
-                  // Radial Cursor Glow Layer (Middle - Behind Content)
-                  if (widget.enableGlow && _isHovered)
-                    Positioned.fill(
-                      child: CustomPaint(
-                        painter: _RadialGlowPainter(
-                          center: _mousePos,
-                          color: colorScheme.primary,
+                // Foreground Decoration (Border Layer - Top)
+                foregroundDecoration: BoxDecoration(
+                  borderRadius: borderRadius,
+                  border: Border.all(
+                    color: widget.enableGlow && _isHovered
+                        ? colorScheme.primary.withValues(alpha: 0.5)
+                        : (widget.borderColor ??
+                              colorScheme.onSurface.withValues(alpha: 0.08)),
+                    width: 1.0,
+                  ),
+                ),
+                child: Stack(
+                  fit: StackFit.passthrough,
+                  children: [
+                    // Radial Cursor Glow Layer (Middle - Behind Content)
+                    if (widget.enableGlow && _isHovered)
+                      Positioned.fill(
+                        child: CustomPaint(
+                          painter: _RadialGlowPainter(
+                            center: _mousePos,
+                            color: colorScheme.primary,
+                          ),
                         ),
                       ),
-                    ),
 
-                  // Content Layer
-                  Padding(
-                    padding: widget.padding ?? EdgeInsets.zero,
-                    child: widget.child ?? const SizedBox.shrink(),
-                  ),
-                ],
+                    // Content Layer
+                    Padding(
+                      padding: widget.padding ?? EdgeInsets.zero,
+                      child: widget.child ?? const SizedBox.shrink(),
+                    ),
+                  ],
+                ),
               ),
             ),
           ),

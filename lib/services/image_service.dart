@@ -6,9 +6,11 @@ import 'package:image/image.dart' as img;
 import 'package:path_provider/path_provider.dart';
 import 'package:flutter/foundation.dart';
 import 'package:palette_generator/palette_generator.dart';
+import 'package:logger/logger.dart';
 
 class ImageService {
   static final ImagePicker _picker = ImagePicker();
+  static final _logger = Logger();
 
   /// Pick an image from gallery
   static Future<XFile?> pickImage() async {
@@ -20,11 +22,11 @@ class ImageService {
             source: ImageSource.gallery,
           );
           if (pickedFile != null) {
-            print('Image picked successfully: ${pickedFile.name}');
+            _logger.d('Image picked successfully: ${pickedFile.name}');
           }
           return pickedFile;
         } catch (webError) {
-          print('Web image picker error: $webError');
+          _logger.e('Web image picker error: $webError');
           return null;
         }
       } else if (Platform.isAndroid || Platform.isIOS) {
@@ -45,13 +47,13 @@ class ImageService {
 
         if (result != null && result.files.single.path != null) {
           final path = result.files.single.path!;
-          print('Image picked successfully (desktop): $path');
+          _logger.d('Image picked successfully (desktop): $path');
           return XFile(path);
         }
         return null;
       }
     } catch (e) {
-      print('Error picking image: $e');
+      _logger.e('Error picking image', error: e);
       return null;
     }
   }
@@ -89,10 +91,11 @@ class ImageService {
         final resized = img.copyResize(image, width: 800);
         final jpg = img.encodeJpg(resized, quality: 85);
         await File(savedPath).writeAsBytes(jpg);
+        _logger.d('Saved image to: $savedPath');
         return savedPath;
       }
     } catch (e) {
-      print('Error saving image: $e');
+      _logger.e('Error saving image', error: e);
     }
     return null;
   }
@@ -101,12 +104,16 @@ class ImageService {
   static Future<void> deleteImage(String path) async {
     try {
       if (kIsWeb) return;
+      _logger.d('Attempting to delete image at: $path');
       final file = File(path);
       if (await file.exists()) {
         await file.delete();
+        _logger.d('Successfully deleted image');
+      } else {
+        _logger.w('Deletion failed: File does not exist at $path');
       }
     } catch (e) {
-      print('Error deleting image: $e');
+      _logger.e('Error deleting image', error: e);
     }
   }
 
@@ -128,7 +135,7 @@ class ImageService {
 
       return paletteGenerator.dominantColor?.color;
     } catch (e) {
-      print('Error extracting colors: $e');
+      _logger.e('Error extracting colors', error: e);
       return null;
     }
   }
