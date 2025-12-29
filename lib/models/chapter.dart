@@ -58,4 +58,14 @@ class Chapter {
       redactions: clearRedactions ? null : (redactions ?? this.redactions),
     );
   }
+
+  int get wordCount {
+    if (content.trim().isEmpty) return 0;
+    // Simple word count for display
+    return content
+        .trim()
+        .split(RegExp(r'\s+'))
+        .where((w) => w.isNotEmpty)
+        .length;
+  }
 }

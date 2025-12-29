@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import '../widgets/glass_background.dart';
 import '../widgets/logo_header.dart';
 import '../services/database_service.dart';
+import '../services/theme_service.dart';
+import 'package:provider/provider.dart';
 import 'home_screen.dart';
 
 class SplashScreen extends StatefulWidget {
@@ -11,19 +13,58 @@ class SplashScreen extends StatefulWidget {
   State<SplashScreen> createState() => _SplashScreenState();
 }
 
-class _SplashScreenState extends State<SplashScreen> {
+class _SplashScreenState extends State<SplashScreen>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+
   @override
   void initState() {
     super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 2),
+    )..repeat();
     _navigateToHome();
   }
 
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
   Future<void> _navigateToHome() async {
-    await DatabaseService.initializeSampleData();
-    await Future.delayed(const Duration(seconds: 3));
+    final startTime = DateTime.now();
+
+    try {
+      // 1. Initialize Database & Sample Data
+      await DatabaseService.initializeSampleData();
+
+      // 2. Initialize Theme Service Preferences
+      if (mounted) {
+        await Provider.of<ThemeService>(context, listen: false).initialization;
+      }
+
+      // Ensure at least 3 seconds of splash for branding/animation
+      final elapsed = DateTime.now().difference(startTime);
+      if (elapsed < const Duration(seconds: 3)) {
+        await Future.delayed(const Duration(seconds: 3) - elapsed);
+      }
+    } catch (e) {
+      debugPrint('Initialization error: $e');
+      // Continue anyway or show error
+    }
+
     if (mounted) {
       Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (context) => const HomeScreen()),
+        PageRouteBuilder(
+          pageBuilder: (context, animation, secondaryAnimation) =>
+              const HomeScreen(),
+          transitionsBuilder: (context, animation, secondaryAnimation, child) {
+            return FadeTransition(opacity: animation, child: child);
+          },
+          transitionDuration: const Duration(milliseconds: 800),
+        ),
       );
     }
   }
@@ -36,7 +77,7 @@ class _SplashScreenState extends State<SplashScreen> {
         body: Center(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
-            children: [const LogoHeader(size: 160)],
+            children: [LogoHeader(size: 160, rotation: _controller)],
           ),
         ),
       ),

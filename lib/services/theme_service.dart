@@ -20,8 +20,15 @@ class ThemeService extends ChangeNotifier {
   String? get customSvg => _customSvg;
   String? get customImagePath => _customImagePath;
 
+  late Future<void> _initFuture;
+  Future<void> get initialization => _initFuture;
+
   ThemeService() {
-    _loadPreferences();
+    _initFuture = initialize();
+  }
+
+  Future<void> initialize() async {
+    await _loadPreferences();
   }
 
   Future<void> _loadPreferences() async {

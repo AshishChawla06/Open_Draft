@@ -65,6 +65,22 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "1.4.0"
+  checked_yaml:
+    dependency: transitive
+    description:
+      name: checked_yaml
+      sha256: "959525d3162f249993882720d52b7e0c833978df229be20702b33d48d91de70f"
+      url: "https://pub.dev"
+    source: hosted
+    version: "2.0.4"
+  cli_util:
+    dependency: transitive
+    description:
+      name: cli_util
+      sha256: ff6785f7e9e3c38ac98b2fb035701789de90154024a75b6cb926445e83197d1c
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.4.2"
   clock:
     dependency: transitive
     description:
@@ -114,7 +130,7 @@ packages:
     source: hosted
     version: "0.3.5+1"
   crypto:
-    dependency: transitive
+    dependency: "direct main"
     description:
       name: crypto
       sha256: c8ea0233063ba03258fbcf2ca4d6dadfefe14f02fab57702265467a19f27fadf
@@ -154,7 +170,7 @@ packages:
     source: hosted
     version: "0.7.11"
   diff_match_patch:
-    dependency: transitive
+    dependency: "direct main"
     description:
       name: diff_match_patch
       sha256: "2efc9e6e8f449d0abe15be240e2c2a3bcd977c8d126cfd70598aee60af35c0a4"
@@ -318,6 +334,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "1.0.0"
+  flutter_launcher_icons:
+    dependency: "direct dev"
+    description:
+      name: flutter_launcher_icons
+      sha256: "526faf84284b86a4cb36d20a5e45147747b7563d921373d4ee0559c54fcdbcea"
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.13.1"
   flutter_lints:
     dependency: "direct dev"
     description:
@@ -517,6 +541,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "0.20.2"
+  json_annotation:
+    dependency: transitive
+    description:
+      name: json_annotation
+      sha256: "1ce844379ca14835a50d2f019a3099f419082cfdd231cd86a142af94dd5c6bb1"
+      url: "https://pub.dev"
+    source: hosted
+    version: "4.9.0"
   leak_tracker:
     dependency: transitive
     description:
@@ -582,7 +614,7 @@ packages:
     source: hosted
     version: "0.12.17"
   material_color_utilities:
-    dependency: transitive
+    dependency: "direct main"
     description:
       name: material_color_utilities
       sha256: f7142bb1154231d7ea5f96bc7bde4bda2a0945d2806bb11670e30b850d56bdec
@@ -629,14 +661,6 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "0.5.0"
-  palette_generator:
-    dependency: "direct main"
-    description:
-      name: palette_generator
-      sha256: "4420f7ccc3f0a4a906144e73f8b6267cd940b64f57a7262e95cb8cec3a8ae0ed"
-      url: "https://pub.dev"
-    source: hosted
-    version: "0.3.3+7"
   path:
     dependency: "direct main"
     description:

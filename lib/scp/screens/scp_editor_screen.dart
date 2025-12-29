@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_quill/flutter_quill.dart' as quill;
+import 'package:flutter_quill/quill_delta.dart' as quill_delta;
 import 'dart:convert';
 import 'dart:async';
 import 'dart:io';
@@ -24,9 +25,13 @@ import '../../models/snapshot.dart';
 import '../../screens/history_screen.dart';
 import 'package:uuid/uuid.dart';
 import '../../screens/reader_screen.dart';
+import '../../widgets/logo_header.dart';
 import '../../widgets/glass_container.dart';
 import '../../widgets/glass_background.dart';
-import '../../widgets/logo_header.dart';
+import '../../widgets/integrated_action_bar.dart';
+import '../../screens/export_screen.dart';
+import '../../models/redaction.dart';
+import '../../widgets/advanced_redactor_overlay.dart';
 
 class SCPEditorScreen extends StatefulWidget {
   final Book book;
@@ -264,7 +269,28 @@ class _SCPEditorScreenState extends State<SCPEditorScreen> {
     }
   }
 
-  void _runValidation() {
+  void _addOverlayRedaction() {
+    final newRedaction = Redaction(
+      start: DateTime.now().millisecondsSinceEpoch,
+      end: DateTime.now().millisecondsSinceEpoch,
+      displayMode: 'overlay',
+      style: 'bar',
+      x: 150,
+      y: 150,
+      width: 200,
+      height: 60,
+    );
+
+    setState(() {
+      _chapter = _chapter.copyWith(
+        redactions: [...(_chapter.redactions ?? []), newRedaction],
+      );
+      _hasUnsavedChanges = true;
+    });
+    _debouncedSave();
+  }
+
+  void _runValidation() async {
     final result = ValidationService.validateBook(widget.book);
     showDialog(
       context: context,
@@ -413,22 +439,120 @@ class _SCPEditorScreenState extends State<SCPEditorScreen> {
                     ],
                   ),
 
-                  // Distraction Free Exit Button
-                  if (_isDistractionFree)
-                    Positioned(
-                      top: 16,
-                      right: 16,
-                      child: GlassContainer(
-                        borderRadius: BorderRadius.circular(12),
-                        opacity: 0.2,
-                        child: IconButton(
-                          icon: const Icon(Icons.fullscreen_exit),
-                          onPressed: () =>
-                              setState(() => _isDistractionFree = false),
-                          color: Colors.white,
+                  Positioned(
+                    top: _isDistractionFree
+                        ? (MediaQuery.of(context).padding.top + 16)
+                        : (MediaQuery.of(context).padding.top +
+                              kToolbarHeight +
+                              16),
+                    right: 16,
+                    child: IntegratedActionBar(
+                      currentMode: _isDistractionFree
+                          ? EditorMode.write
+                          : EditorMode.edit,
+                      isNotesOpen: _showNotes,
+                      isToolbarOpen: !_isToolbarCollapsed,
+                      isDistractionFree: _isDistractionFree,
+                      hasUnsavedChanges: _hasUnsavedChanges,
+                      onShowOutline: () =>
+                          setState(() => _showChapters = !_showChapters),
+                      onInfoPressed: () => setState(
+                        () => _showMetadataPanel = !_showMetadataPanel,
+                      ),
+                      onModeChanged: (mode) {
+                        switch (mode) {
+                          case EditorMode.write:
+                            setState(() {
+                              _isDistractionFree = !_isDistractionFree;
+                              if (_isDistractionFree) {
+                                _showNotes = false;
+                                _showChapters = false;
+                                _showMetadataPanel = false;
+                              }
+                            });
+                            break;
+                          case EditorMode.edit:
+                            if (_isDistractionFree) {
+                              setState(() => _isDistractionFree = false);
+                            } else {
+                              setState(
+                                () =>
+                                    _isToolbarCollapsed = !_isToolbarCollapsed,
+                              );
+                            }
+                            break;
+                          case EditorMode.notes:
+                            setState(() {
+                              _showNotes = !_showNotes;
+                              if (_showNotes) {
+                                _showChapters = false;
+                                _showMetadataPanel = false;
+                              }
+                            });
+                            break;
+                          case EditorMode.view:
+                            _saveChapter().then((_) {
+                              if (mounted) {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => ReaderScreen(
+                                      book: widget.book,
+                                      chapter: _chapter,
+                                    ),
+                                  ),
+                                );
+                              }
+                            });
+                            break;
+                          case EditorMode.share:
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) =>
+                                    ExportScreen(book: widget.book),
+                              ),
+                            );
+                            break;
+                        }
+                      },
+                    ),
+                  ),
+
+                  // Advanced Redactor Overlays
+                  ...(_chapter.redactions ?? [])
+                      .where((r) => r.displayMode == 'overlay')
+                      .map(
+                        (redaction) => AdvancedRedactorOverlay(
+                          key: ValueKey(
+                            redaction.start,
+                          ), // Use start as temporary stable key
+                          redaction: redaction,
+                          onUpdate: (updated) {
+                            setState(() {
+                              final index = _chapter.redactions!.indexWhere(
+                                (r) => r.start == redaction.start,
+                              );
+                              if (index != -1) {
+                                _chapter.redactions![index] = updated;
+                                _hasUnsavedChanges = true;
+                              }
+                            });
+                            _debouncedSave();
+                          },
+                          onDelete: () {
+                            setState(() {
+                              _chapter.redactions!.removeWhere(
+                                (r) => r.start == redaction.start,
+                              );
+                              _hasUnsavedChanges = true;
+                            });
+                            _debouncedSave();
+                          },
                         ),
                       ),
-                    ),
+
+                  // Distraction Free Exit Button (Now removed as IntegratedActionBar handles it, or keep as fallback)
                 ],
               ),
             ),
@@ -476,7 +600,6 @@ class _SCPEditorScreenState extends State<SCPEditorScreen> {
 
   PreferredSizeWidget _buildAppBar() {
     final colorScheme = Theme.of(context).colorScheme;
-    final scpRed = const Color(0xFFFF4444);
 
     return AppBar(
       backgroundColor: Colors.transparent,
@@ -517,119 +640,6 @@ class _SCPEditorScreenState extends State<SCPEditorScreen> {
         ],
       ),
       actions: [
-        // Save Indicator
-        Center(
-          child: GlassContainer(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-            borderRadius: BorderRadius.circular(8),
-            color: _hasUnsavedChanges ? Colors.orange : Colors.green,
-            opacity: 0.1,
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  width: 6,
-                  height: 6,
-                  decoration: BoxDecoration(
-                    color: _hasUnsavedChanges ? Colors.orange : Colors.green,
-                    shape: BoxShape.circle,
-                  ),
-                ),
-                const SizedBox(width: 6),
-                Text(
-                  _hasUnsavedChanges ? 'Unsaved' : 'Saved',
-                  style: TextStyle(
-                    color: _hasUnsavedChanges ? Colors.orange : Colors.green,
-                    fontSize: 10,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-        const SizedBox(width: 8),
-
-        // Side Panels Toggle Group
-        Container(
-          height: 32,
-          padding: const EdgeInsets.symmetric(horizontal: 4),
-          decoration: BoxDecoration(
-            color: colorScheme.surface.withOpacity(0.1),
-            borderRadius: BorderRadius.circular(10),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              IconButton(
-                icon: Icon(
-                  _showChapters ? Icons.list_alt : Icons.list,
-                  size: 18,
-                  color: _showChapters ? scpRed : null,
-                ),
-                padding: EdgeInsets.zero,
-                constraints: const BoxConstraints(minWidth: 32),
-                tooltip: 'Chapters',
-                onPressed: () => setState(() => _showChapters = !_showChapters),
-              ),
-              IconButton(
-                icon: Icon(
-                  Icons.note_outlined,
-                  size: 18,
-                  color: _showNotes ? scpRed : null,
-                ),
-                padding: EdgeInsets.zero,
-                constraints: const BoxConstraints(minWidth: 32),
-                tooltip: 'Notes',
-                onPressed: () {
-                  setState(() {
-                    _showNotes = !_showNotes;
-                    if (_showNotes) _showMetadataPanel = false;
-                  });
-                },
-              ),
-              IconButton(
-                icon: Icon(
-                  Icons.info_outline,
-                  size: 18,
-                  color: _showMetadataPanel ? scpRed : null,
-                ),
-                padding: EdgeInsets.zero,
-                constraints: const BoxConstraints(minWidth: 32),
-                tooltip: 'Metadata',
-                onPressed: () {
-                  setState(() {
-                    _showMetadataPanel = !_showMetadataPanel;
-                    if (_showMetadataPanel) _showNotes = false;
-                  });
-                },
-              ),
-              IconButton(
-                icon: Icon(
-                  _isToolbarCollapsed
-                      ? Icons.keyboard_arrow_down
-                      : Icons.keyboard_arrow_up,
-                  size: 18,
-                ),
-                padding: EdgeInsets.zero,
-                constraints: const BoxConstraints(minWidth: 32),
-                tooltip: _isToolbarCollapsed ? 'Show Toolbar' : 'Hide Toolbar',
-                onPressed: () =>
-                    setState(() => _isToolbarCollapsed = !_isToolbarCollapsed),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(width: 8),
-
-        IconButton(
-          icon: const Icon(Icons.fullscreen),
-          tooltip: 'Distraction Free',
-          onPressed: () => setState(() {
-            _isDistractionFree = true;
-          }),
-        ),
-
         PopupMenuButton<String>(
           icon: const Icon(Icons.more_vert),
           onSelected: (value) async {
@@ -654,6 +664,8 @@ class _SCPEditorScreenState extends State<SCPEditorScreen> {
               _saveSnapshot();
             } else if (value == 'history') {
               _viewHistory();
+            } else if (value == 'redact_overlay') {
+              _addOverlayRedaction();
             }
           },
           itemBuilder: (context) => [
@@ -711,9 +723,19 @@ class _SCPEditorScreenState extends State<SCPEditorScreen> {
               value: 'history',
               child: Row(
                 children: [
-                  Icon(Icons.history),
-                  SizedBox(width: 8),
+                  Icon(Icons.history, size: 20),
+                  SizedBox(width: 12),
                   Text('History'),
+                ],
+              ),
+            ),
+            const PopupMenuItem(
+              value: 'redact_overlay',
+              child: Row(
+                children: [
+                  Icon(Icons.layers_outlined, size: 20),
+                  SizedBox(width: 12),
+                  Text('Add Redactor Overlay'),
                 ],
               ),
             ),
@@ -1069,15 +1091,30 @@ class _SCPEditorScreenState extends State<SCPEditorScreen> {
     );
 
     if (selectedTemplate != null && mounted) {
-      final contentList = jsonDecode(selectedTemplate.content) as List;
-      final index = _quillController.selection.baseOffset;
-      final length = _quillController.document.length;
-      final safeIndex = (index < 0 || index > length) ? length - 1 : index;
+      try {
+        final contentJson = jsonDecode(selectedTemplate.content);
+        final List<dynamic> ops = contentJson is Map
+            ? contentJson['ops']
+            : contentJson;
+        final delta = quill_delta.Delta.fromJson(ops);
 
-      for (var op in contentList) {
-        if (op is Map && op.containsKey('insert')) {
-          _quillController.document.insert(safeIndex, op['insert']);
-        }
+        final index = _quillController.selection.baseOffset;
+        final length = _quillController.document.length;
+        final safeIndex = (index < 0 || index > length) ? length - 1 : index;
+
+        _quillController.document.compose(
+          quill_delta.Delta()
+            ..retain(safeIndex)
+            ..concat(delta),
+          quill.ChangeSource.local,
+        );
+      } catch (e) {
+        _logger.e('Error inserting template: $e');
+        // Fallback to simple insert
+        final index = _quillController.selection.baseOffset;
+        final length = _quillController.document.length;
+        final safeIndex = (index < 0 || index > length) ? length - 1 : index;
+        _quillController.document.insert(safeIndex, selectedTemplate.content);
       }
     }
   }

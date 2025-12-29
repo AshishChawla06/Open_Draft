@@ -1,11 +1,12 @@
 import 'dart:io';
+import 'package:http/http.dart' as http;
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:image/image.dart' as img;
 import 'package:path_provider/path_provider.dart';
 import 'package:flutter/foundation.dart';
-import 'package:palette_generator/palette_generator.dart';
+import 'package:material_color_utilities/material_color_utilities.dart';
 import 'package:logger/logger.dart';
 
 class ImageService {
@@ -120,20 +121,49 @@ class ImageService {
   /// Extract dominant color from image for Material You theming
   static Future<Color?> extractDominantColor(String imagePath) async {
     try {
-      ImageProvider imageProvider;
-
+      Uint8List bytes;
       if (kIsWeb) {
-        imageProvider = NetworkImage(imagePath);
+        // For web, use http to get bytes from URL (blob or relative)
+        final response = await http.get(Uri.parse(imagePath));
+        bytes = response.bodyBytes;
       } else {
-        imageProvider = FileImage(File(imagePath));
+        bytes = await File(imagePath).readAsBytes();
       }
 
-      final paletteGenerator = await PaletteGenerator.fromImageProvider(
-        imageProvider,
-        maximumColorCount: 20,
-      );
+      final image = img.decodeImage(bytes);
+      if (image == null) return null;
 
-      return paletteGenerator.dominantColor?.color;
+      // Extract pixels for quantization
+      // We resize for performance
+      final resized = img.copyResize(image, width: 128);
+      final pixels = <int>[];
+
+      for (int y = 0; y < resized.height; y++) {
+        for (int x = 0; x < resized.width; x++) {
+          final pixel = resized.getPixel(x, y);
+          // Material color utilities expects ARGB
+          final argb =
+              (pixel.a.toInt() << 24) |
+              (pixel.r.toInt() << 16) |
+              (pixel.g.toInt() << 8) |
+              pixel.b.toInt();
+          pixels.add(argb);
+        }
+      }
+
+      // Quantize colors
+      final quantizer = QuantizerCelebi();
+      final result = await quantizer.quantize(pixels, 128);
+
+      // Score and rank colors
+      final ranked = Score.score(result.colorToCount);
+
+      if (ranked.isNotEmpty) {
+        final topColor = ranked.first;
+        return Color(topColor);
+      }
+
+      return null;
     } catch (e) {
       _logger.e('Error extracting colors', error: e);
       return null;

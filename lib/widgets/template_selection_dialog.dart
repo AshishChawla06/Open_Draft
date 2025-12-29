@@ -73,8 +73,35 @@ class TemplateSelectionDialog extends StatelessWidget {
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
                         ),
-                        onTap: () {
-                          Navigator.pop(context, template);
+                        onTap: () async {
+                          final variables = TemplateService.extractVariables(
+                            template.content,
+                          );
+                          if (variables.isEmpty) {
+                            Navigator.pop(context, template);
+                          } else {
+                            final values = await _promptForVariables(
+                              context,
+                              variables,
+                            );
+                            if (values != null) {
+                              final processedContent =
+                                  TemplateService.replaceVariables(
+                                    template.content,
+                                    values,
+                                  );
+                              Navigator.pop(
+                                context,
+                                Template(
+                                  id: template.id,
+                                  name: template.name,
+                                  description: template.description,
+                                  content: processedContent,
+                                  type: template.type,
+                                ),
+                              );
+                            }
+                          }
                         },
                         contentPadding: EdgeInsets.zero,
                         trailing: const Icon(Icons.arrow_forward_ios, size: 16),
@@ -94,6 +121,56 @@ class TemplateSelectionDialog extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Future<Map<String, String>?> _promptForVariables(
+    BuildContext context,
+    List<String> variables,
+  ) async {
+    final controllers = {for (var v in variables) v: TextEditingController()};
+
+    return showDialog<Map<String, String>>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Template Variables'),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text('Please fill in the following placeholders:'),
+              const SizedBox(height: 16),
+              ...variables.map(
+                (v) => Padding(
+                  padding: const EdgeInsets.only(bottom: 8.0),
+                  child: TextField(
+                    controller: controllers[v],
+                    decoration: InputDecoration(
+                      labelText: v,
+                      border: const OutlineInputBorder(),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              final result = controllers.map(
+                (key, controller) => MapEntry(key, controller.text),
+              );
+              Navigator.pop(context, result);
+            },
+            child: const Text('Insert'),
+          ),
+        ],
       ),
     );
   }

@@ -45,6 +45,43 @@ class TemplateService {
     await prefs.setString(_customTemplatesKey, jsonEncode(list));
   }
 
+  /// Extracts all variables formatted as [VariableName] from the template content.
+  static List<String> extractVariables(String content) {
+    final variables = <String>{};
+    final regex = RegExp(r'\[([^\]]+)\]');
+
+    try {
+      final json = jsonDecode(content);
+      final List<dynamic> ops = json is Map ? json['ops'] : json;
+
+      for (final op in ops) {
+        if (op['insert'] is String) {
+          final matches = regex.allMatches(op['insert']);
+          for (final match in matches) {
+            variables.add(match.group(1)!);
+          }
+        }
+      }
+    } catch (e) {
+      // Fallback for plain text or malformed JSON
+      final matches = regex.allMatches(content);
+      for (final match in matches) {
+        variables.add(match.group(1)!);
+      }
+    }
+
+    return variables.toList();
+  }
+
+  /// Replaces variables in the template content with the provided values.
+  static String replaceVariables(String content, Map<String, String> values) {
+    String processed = content;
+    values.forEach((key, value) {
+      processed = processed.replaceAll('[$key]', value);
+    });
+    return processed;
+  }
+
   static final List<Template> _scpTemplates = [
     Template(
       id: 'scp_standard',

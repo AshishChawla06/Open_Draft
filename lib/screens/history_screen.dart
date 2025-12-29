@@ -3,6 +3,7 @@ import 'package:intl/intl.dart';
 import '../models/chapter.dart';
 import '../models/snapshot.dart';
 import '../services/database_service.dart';
+import '../widgets/visual_diff_viewer.dart';
 
 class HistoryScreen extends StatefulWidget {
   final Chapter chapter;
@@ -127,6 +128,24 @@ class _HistoryScreenState extends State<HistoryScreen> {
                     trailing: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
+                        IconButton(
+                          icon: const Icon(Icons.difference_outlined),
+                          tooltip: 'Compare with current',
+                          onPressed: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => VisualDiffViewer(
+                                  title: 'Changes',
+                                  oldContent: snapshot.content,
+                                  newContent: widget.chapter.content,
+                                  oldLabel: 'Snapshot',
+                                  newLabel: 'Current',
+                                ),
+                              ),
+                            );
+                          },
+                        ),
                         IconButton(
                           icon: const Icon(Icons.restore),
                           tooltip: 'Restore',

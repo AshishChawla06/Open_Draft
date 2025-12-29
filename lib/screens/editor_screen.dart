@@ -5,6 +5,7 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_quill/flutter_quill.dart' as quill;
+import 'package:flutter_quill/quill_delta.dart' as quill_delta;
 import 'package:logger/logger.dart';
 
 import '../models/book.dart';
@@ -25,6 +26,8 @@ import 'package:uuid/uuid.dart';
 import 'reader_screen.dart';
 import '../widgets/grammar_panel.dart';
 import '../models/bookmark.dart';
+import '../widgets/integrated_action_bar.dart';
+import 'export_screen.dart';
 
 class EditorScreen extends StatefulWidget {
   final Book book;
@@ -48,7 +51,6 @@ class _EditorScreenState extends State<EditorScreen> {
   bool _hasUnsavedChanges = false;
   Timer? _autosaveTimer;
 
-  bool _isSaving = false;
   bool _showNotes = false;
   bool _showChapters = false;
   bool _showGrammar = false;
@@ -144,8 +146,6 @@ class _EditorScreenState extends State<EditorScreen> {
   Future<void> _saveChapter() async {
     if (!mounted) return;
 
-    setState(() => _isSaving = true);
-
     try {
       final deltaOps = _quillController.document.toDelta().toJson();
       // Wrap delta operations in the format expected by Document.fromJson
@@ -163,12 +163,10 @@ class _EditorScreenState extends State<EditorScreen> {
         setState(() {
           _chapter = updatedChapter;
           _hasUnsavedChanges = false;
-          _isSaving = false;
         });
       }
     } catch (e) {
       if (mounted) {
-        setState(() => _isSaving = false);
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(SnackBar(content: Text('Failed to save: $e')));
@@ -240,19 +238,30 @@ class _EditorScreenState extends State<EditorScreen> {
     );
 
     if (selectedTemplate != null && mounted) {
-      // Decode content
-      final contentList = jsonDecode(selectedTemplate.content) as List;
+      try {
+        final contentJson = jsonDecode(selectedTemplate.content);
+        final List<dynamic> ops = contentJson is Map
+            ? contentJson['ops']
+            : contentJson;
+        final delta = quill_delta.Delta.fromJson(ops);
 
-      final index = _quillController.selection.baseOffset;
-      final length = _quillController.document.length;
+        final index = _quillController.selection.baseOffset;
+        final length = _quillController.document.length;
+        final safeIndex = (index < 0 || index > length) ? length - 1 : index;
 
-      // If document is empty or just has a newline
-      final safeIndex = (index < 0 || index > length) ? length - 1 : index;
-
-      for (var op in contentList) {
-        if (op is Map && op.containsKey('insert')) {
-          _quillController.document.insert(safeIndex, op['insert']);
-        }
+        _quillController.document.compose(
+          quill_delta.Delta()
+            ..retain(safeIndex)
+            ..concat(delta),
+          quill.ChangeSource.local,
+        );
+      } catch (e) {
+        _logger.e('Error inserting template: $e');
+        // Fallback to simple insert if JSON parsing fails
+        final index = _quillController.selection.baseOffset;
+        final length = _quillController.document.length;
+        final safeIndex = (index < 0 || index > length) ? length - 1 : index;
+        _quillController.document.insert(safeIndex, selectedTemplate.content);
       }
     }
   }
@@ -476,6 +485,107 @@ class _EditorScreenState extends State<EditorScreen> {
                 ],
               ),
             ),
+
+            // Integrated Action Bar
+            Positioned(
+              top: _isDistractionFree
+                  ? (MediaQuery.of(context).padding.top + 16)
+                  : (MediaQuery.of(context).padding.top + kToolbarHeight + 16),
+              right: 16,
+              child: IntegratedActionBar(
+                currentMode: _isDistractionFree
+                    ? EditorMode.write
+                    : EditorMode.edit,
+                isNotesOpen: _showNotes,
+                isToolbarOpen: !_isToolbarCollapsed,
+                isDistractionFree: _isDistractionFree,
+                hasUnsavedChanges: _hasUnsavedChanges,
+                onShowOutline: () =>
+                    setState(() => _showChapters = !_showChapters),
+                onInfoPressed: () {
+                  // Show some info dialog for EditorScreen
+                  showDialog(
+                    context: context,
+                    builder: (context) => AlertDialog(
+                      title: const Text('Document Info'),
+                      content: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('Title: ${_chapter.title}'),
+                          Text('Word Count: ${_chapter.wordCount}'),
+                          if (_chapter.wordCountGoal != null)
+                            Text('Goal: ${_chapter.wordCountGoal}'),
+                        ],
+                      ),
+                      actions: [
+                        TextButton(
+                          onPressed: () => Navigator.pop(context),
+                          child: const Text('Close'),
+                        ),
+                      ],
+                    ),
+                  );
+                },
+                onModeChanged: (mode) {
+                  switch (mode) {
+                    case EditorMode.write:
+                      setState(() {
+                        _isDistractionFree = !_isDistractionFree;
+                        if (_isDistractionFree) {
+                          _showNotes = false;
+                          _showChapters = false;
+                          _showGrammar = false;
+                          _showBookmarks = false;
+                        }
+                      });
+                      break;
+                    case EditorMode.edit:
+                      if (_isDistractionFree) {
+                        setState(() => _isDistractionFree = false);
+                      } else {
+                        setState(
+                          () => _isToolbarCollapsed = !_isToolbarCollapsed,
+                        );
+                      }
+                      break;
+                    case EditorMode.notes:
+                      setState(() {
+                        _showNotes = !_showNotes;
+                        if (_showNotes) {
+                          _showChapters = false;
+                          _showBookmarks = false;
+                          _showGrammar = false;
+                        }
+                      });
+                      break;
+                    case EditorMode.view:
+                      _saveChapter().then((_) {
+                        if (mounted) {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => ReaderScreen(
+                                book: widget.book,
+                                chapter: _chapter,
+                              ),
+                            ),
+                          );
+                        }
+                      });
+                      break;
+                    case EditorMode.share:
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => ExportScreen(book: widget.book),
+                        ),
+                      );
+                      break;
+                  }
+                },
+              ),
+            ),
           ],
         ),
       ),
@@ -663,58 +773,6 @@ class _EditorScreenState extends State<EditorScreen> {
         ],
       ),
       actions: [
-        IconButton(
-          icon: Icon(_isSaving ? Icons.cloud_upload : Icons.cloud_done),
-          onPressed: _hasUnsavedChanges ? _saveChapter : null,
-          tooltip: _hasUnsavedChanges ? 'Save changes' : 'All changes saved',
-        ),
-        IconButton(
-          icon: Icon(
-            _isDistractionFree ? Icons.fullscreen_exit : Icons.fullscreen,
-          ),
-          onPressed: () {
-            setState(() {
-              _isDistractionFree = !_isDistractionFree;
-              if (_isDistractionFree) {
-                _showNotes = false;
-                _showChapters = false;
-              }
-            });
-          },
-          tooltip: 'Distraction Free Mode',
-        ),
-        IconButton(
-          icon: Icon(_showChapters ? Icons.list_alt : Icons.list),
-          onPressed: () => setState(() => _showChapters = !_showChapters),
-          tooltip: 'Toggle Chapters',
-        ),
-        IconButton(
-          icon: Icon(_showNotes ? Icons.notes_outlined : Icons.notes),
-          onPressed: () => setState(() => _showNotes = !_showNotes),
-          tooltip: 'Toggle Notes',
-        ),
-        IconButton(
-          icon: Icon(_showBookmarks ? Icons.bookmark : Icons.bookmark_outline),
-          onPressed: () => setState(() {
-            _showBookmarks = !_showBookmarks;
-            if (_showBookmarks) {
-              _showNotes = false;
-              _showChapters = false;
-              _showGrammar = false;
-            }
-          }),
-          tooltip: 'Toggle Bookmarks',
-        ),
-        IconButton(
-          icon: Icon(
-            _isToolbarCollapsed
-                ? Icons.keyboard_arrow_down
-                : Icons.keyboard_arrow_up,
-          ),
-          onPressed: () =>
-              setState(() => _isToolbarCollapsed = !_isToolbarCollapsed),
-          tooltip: _isToolbarCollapsed ? 'Show Toolbar' : 'Hide Toolbar',
-        ),
         PopupMenuButton<String>(
           onSelected: (value) async {
             switch (value) {

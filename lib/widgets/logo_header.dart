@@ -4,12 +4,44 @@ import 'glass_container.dart';
 class LogoHeader extends StatelessWidget {
   final double size;
   final bool showText;
+  final Animation<double>? rotation;
 
-  const LogoHeader({super.key, this.size = 80, this.showText = true});
+  const LogoHeader({
+    super.key,
+    this.size = 80,
+    this.showText = true,
+    this.rotation,
+  });
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
+
+    Widget logoBody = Container(
+      width: size * 0.5,
+      height: size * 0.5,
+      decoration: BoxDecoration(
+        border: Border.all(
+          color: colorScheme.primary.withValues(alpha: 0.8),
+          width: size * 0.06,
+        ),
+        borderRadius: BorderRadius.circular(size * 0.25), // Force circle
+      ),
+      child: Center(
+        child: Container(
+          width: size * 0.18,
+          height: size * 0.18,
+          decoration: BoxDecoration(
+            color: colorScheme.primary.withValues(alpha: 0.8),
+            shape: BoxShape.circle,
+          ),
+        ),
+      ),
+    );
+
+    if (rotation != null) {
+      logoBody = RotationTransition(turns: rotation!, child: logoBody);
+    }
 
     return Row(
       mainAxisSize: MainAxisSize.min,
@@ -22,29 +54,7 @@ class LogoHeader extends StatelessWidget {
           blur: 15,
           opacity: 0.05,
           color: colorScheme.primary,
-          child: Center(
-            child: Container(
-              width: size * 0.5,
-              height: size * 0.5,
-              decoration: BoxDecoration(
-                border: Border.all(
-                  color: colorScheme.primary.withValues(alpha: 0.8),
-                  width: size * 0.06,
-                ),
-                borderRadius: BorderRadius.circular(size * 0.15),
-              ),
-              child: Center(
-                child: Container(
-                  width: size * 0.18,
-                  height: size * 0.18,
-                  decoration: BoxDecoration(
-                    color: colorScheme.primary.withValues(alpha: 0.8),
-                    shape: BoxShape.circle,
-                  ),
-                ),
-              ),
-            ),
-          ),
+          child: Center(child: logoBody),
         ),
         if (showText) ...[
           const SizedBox(width: 16),

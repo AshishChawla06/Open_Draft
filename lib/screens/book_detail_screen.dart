@@ -140,231 +140,89 @@ class _BookDetailScreenState extends State<BookDetailScreen> {
               GlassContainer(
                 padding: const EdgeInsets.all(24),
                 borderRadius: BorderRadius.circular(32),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Book Cover
-                    GestureDetector(
-                      onTap: _showCoverOptions,
-                      child: MouseRegion(
-                        cursor: SystemMouseCursors.click,
-                        child: Stack(
-                          children: [
-                            Hero(
-                              tag: 'book-cover-${_currentBook.id}',
-                              child: _currentBook.coverUrl != null
-                                  ? ClipRRect(
-                                      borderRadius: BorderRadius.circular(16),
-                                      child: kIsWeb
-                                          ? Image.network(
-                                              _currentBook.coverUrl!,
-                                              width: 140,
-                                              height: 200,
-                                              fit: BoxFit.cover,
-                                            )
-                                          : Image.file(
-                                              File(_currentBook.coverUrl!),
-                                              width: 140,
-                                              height: 200,
-                                              fit: BoxFit.cover,
-                                            ),
-                                    )
-                                  : Container(
-                                      width: 140,
-                                      height: 200,
-                                      decoration: BoxDecoration(
-                                        color: colorScheme.onSurface.withValues(
-                                          alpha: 0.1,
-                                        ),
-                                        borderRadius: BorderRadius.circular(16),
-                                      ),
-                                      child: Icon(
-                                        Icons.book,
-                                        size: 48,
-                                        color: colorScheme.onSurface.withValues(
-                                          alpha: 0.3,
-                                        ),
-                                      ),
-                                    ),
-                            ),
-                            Positioned(
-                              right: 8,
-                              bottom: 8,
-                              child: Container(
-                                padding: const EdgeInsets.all(4),
-                                decoration: BoxDecoration(
-                                  color: Colors.black54,
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                                child: const Icon(
-                                  Icons.camera_alt,
-                                  size: 16,
-                                  color: Colors.white,
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    final bool isSmall = constraints.maxWidth < 600;
+                    final bool isVerySmall = constraints.maxWidth < 400;
+
+                    final infoAndActions = Column(
+                      crossAxisAlignment: isSmall
+                          ? CrossAxisAlignment.start
+                          : CrossAxisAlignment.start,
+                      children: [
+                        // Info Column Content
+                        Text(
+                          _currentBook.title,
+                          style: Theme.of(context).textTheme.headlineSmall
+                              ?.copyWith(
+                                fontWeight: FontWeight.bold,
+                                color: colorScheme.onSurface,
+                              ),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          'By ${_currentBook.author}',
+                          style: Theme.of(context).textTheme.titleSmall
+                              ?.copyWith(
+                                color: colorScheme.onSurface.withValues(
+                                  alpha: 0.6,
                                 ),
                               ),
+                        ),
+                        const SizedBox(height: 20),
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          children: [
+                            _buildBadge(
+                              _currentBook.documentType == DocumentType.scp
+                                  ? 'SCP'
+                                  : 'Novel',
+                              _currentBook.documentType == DocumentType.scp
+                                  ? Colors.blue
+                                  : Colors.orange,
+                            ),
+                            ..._currentBook.tags.map(
+                              (tag) => _buildBadge(tag, null),
                             ),
                           ],
                         ),
-                      ),
-                    ),
-                    const SizedBox(width: 32),
-
-                    // Info Column
-                    Expanded(
-                      flex: 5,
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            _currentBook.title,
-                            style: Theme.of(context).textTheme.displaySmall
-                                ?.copyWith(
-                                  fontWeight: FontWeight.bold,
-                                  color: colorScheme.onSurface,
-                                ),
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            'By ${_currentBook.author}',
-                            style: Theme.of(context).textTheme.titleMedium
-                                ?.copyWith(
-                                  color: colorScheme.onSurface.withValues(
-                                    alpha: 0.6,
-                                  ),
-                                ),
-                          ),
-                          const SizedBox(height: 24),
-                          Wrap(
-                            spacing: 8,
-                            runSpacing: 8,
-                            children: [
-                              _buildBadge(
-                                _currentBook.documentType == DocumentType.scp
-                                    ? 'SCP'
-                                    : 'Novel',
-                                _currentBook.documentType == DocumentType.scp
-                                    ? Colors.blue
-                                    : Colors.orange,
-                              ),
-                              ..._currentBook.tags.map(
-                                (tag) => _buildBadge(tag, null),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-
-                    // Actions Column (Right Side)
-                    Expanded(
-                      flex: 3,
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        crossAxisAlignment: CrossAxisAlignment.end,
-                        children: [
-                          // Action Buttons
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.end,
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              GestureDetector(
-                                onTap: _editDetails,
-                                child: MouseRegion(
-                                  cursor: SystemMouseCursors.click,
-                                  child: GlassContainer(
-                                    padding: const EdgeInsets.all(12),
-                                    borderRadius: BorderRadius.circular(12),
-                                    opacity: 0.1,
-                                    child: const Icon(
-                                      Icons.edit_outlined,
-                                      size: 20,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              GestureDetector(
-                                onTap: () async {
-                                  // Delete logic
-                                  final confirm = await showDialog<bool>(
-                                    context: context,
-                                    builder: (context) => AlertDialog(
-                                      title: const Text('Delete Draft?'),
-                                      content: Text(
-                                        'Are you sure you want to delete "${_currentBook.title}"?',
-                                      ),
-                                      actions: [
-                                        TextButton(
-                                          onPressed: () =>
-                                              Navigator.pop(context, false),
-                                          child: const Text('Cancel'),
-                                        ),
-                                        TextButton(
-                                          onPressed: () =>
-                                              Navigator.pop(context, true),
-                                          style: TextButton.styleFrom(
-                                            foregroundColor: Colors.red,
-                                          ),
-                                          child: const Text('Delete'),
-                                        ),
-                                      ],
-                                    ),
-                                  );
-
-                                  if (confirm == true) {
-                                    await DatabaseService.deleteBook(
-                                      _currentBook.id,
-                                    );
-                                    if (context.mounted) {
-                                      Navigator.pop(context); // Go back
-                                    }
-                                  }
-                                },
-                                child: MouseRegion(
-                                  cursor: SystemMouseCursors.click,
-                                  child: GlassContainer(
-                                    padding: const EdgeInsets.all(12),
-                                    borderRadius: BorderRadius.circular(12),
-                                    opacity: 0.1,
-                                    color: colorScheme.error.withValues(
-                                      alpha: 0.1,
-                                    ),
-                                    child: Icon(
-                                      Icons.delete_outline,
-                                      size: 20,
-                                      color: colorScheme.error,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
+                        if (isSmall) ...[
                           const SizedBox(height: 32),
-                          // Stats (Vertical)
-                          _buildStatRow(
-                            context,
-                            Icons.article_outlined,
-                            'Chapters',
-                            '${_currentBook.chapters.length}',
-                          ),
-                          const SizedBox(height: 12),
-                          _buildStatRow(
-                            context,
-                            Icons.text_fields,
-                            'Characters',
-                            _calculateTotalCharacters(),
-                          ),
-                          const SizedBox(height: 12),
-                          _buildStatRow(
-                            context,
-                            Icons.calendar_today,
-                            'Updated',
-                            _formatDate(_currentBook.updatedAt),
-                          ),
+                          _buildActionsAndStats(context, true),
                         ],
-                      ),
-                    ),
-                  ],
+                      ],
+                    );
+
+                    if (isVerySmall) {
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          _buildCover(context),
+                          const SizedBox(height: 32),
+                          infoAndActions,
+                        ],
+                      );
+                    }
+
+                    return Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Book Cover
+                        _buildCover(context),
+                        const SizedBox(width: 32),
+
+                        // Info Column
+                        Expanded(flex: 5, child: infoAndActions),
+
+                        if (!isSmall)
+                          Expanded(
+                            flex: 3,
+                            child: _buildActionsAndStats(context, false),
+                          ),
+                      ],
+                    );
+                  },
                 ),
               ),
 
@@ -473,6 +331,173 @@ class _BookDetailScreenState extends State<BookDetailScreen> {
         ),
       ),
     );
+  }
+
+  Widget _buildCover(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return GestureDetector(
+      onTap: _showCoverOptions,
+      child: MouseRegion(
+        cursor: SystemMouseCursors.click,
+        child: Stack(
+          children: [
+            Hero(
+              tag: 'book-cover-${_currentBook.id}',
+              child: _currentBook.coverUrl != null
+                  ? ClipRRect(
+                      borderRadius: BorderRadius.circular(16),
+                      child: kIsWeb
+                          ? Image.network(
+                              _currentBook.coverUrl!,
+                              width: 140,
+                              height: 200,
+                              fit: BoxFit.cover,
+                            )
+                          : Image.file(
+                              File(_currentBook.coverUrl!),
+                              width: 140,
+                              height: 200,
+                              fit: BoxFit.cover,
+                            ),
+                    )
+                  : Container(
+                      width: 140,
+                      height: 200,
+                      decoration: BoxDecoration(
+                        color: colorScheme.onSurface.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: Icon(
+                        Icons.book,
+                        size: 48,
+                        color: colorScheme.onSurface.withValues(alpha: 0.3),
+                      ),
+                    ),
+            ),
+            Positioned(
+              right: 8,
+              bottom: 8,
+              child: Container(
+                padding: const EdgeInsets.all(4),
+                decoration: BoxDecoration(
+                  color: Colors.black54,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(
+                  Icons.camera_alt,
+                  size: 16,
+                  color: Colors.white,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildActionsAndStats(BuildContext context, bool isHorizontalSmall) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: isHorizontalSmall
+          ? CrossAxisAlignment.start
+          : CrossAxisAlignment.end,
+      children: [
+        // Action Buttons
+        Row(
+          mainAxisAlignment: isHorizontalSmall
+              ? MainAxisAlignment.start
+              : MainAxisAlignment.end,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            GestureDetector(
+              onTap: _editDetails,
+              child: MouseRegion(
+                cursor: SystemMouseCursors.click,
+                child: GlassContainer(
+                  padding: const EdgeInsets.all(12),
+                  borderRadius: BorderRadius.circular(12),
+                  opacity: 0.1,
+                  child: const Icon(Icons.edit_outlined, size: 20),
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+            GestureDetector(
+              onTap: _confirmDelete,
+              child: MouseRegion(
+                cursor: SystemMouseCursors.click,
+                child: GlassContainer(
+                  padding: const EdgeInsets.all(12),
+                  borderRadius: BorderRadius.circular(12),
+                  opacity: 0.1,
+                  color: colorScheme.error.withValues(alpha: 0.1),
+                  child: Icon(
+                    Icons.delete_outline,
+                    size: 20,
+                    color: colorScheme.error,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 32),
+        // Stats
+        _buildStatRow(
+          context,
+          Icons.article_outlined,
+          'Chapters',
+          '${_currentBook.chapters.length}',
+        ),
+        const SizedBox(height: 12),
+        _buildStatRow(
+          context,
+          Icons.text_fields,
+          'Characters',
+          _calculateTotalCharacters(),
+        ),
+        const SizedBox(height: 12),
+        _buildStatRow(
+          context,
+          Icons.calendar_today,
+          'Updated',
+          _formatDate(_currentBook.updatedAt),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _confirmDelete() async {
+    final colorScheme = Theme.of(context).colorScheme;
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete Draft?'),
+        content: Text(
+          'Are you sure you want to delete "${_currentBook.title}"?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: TextButton.styleFrom(foregroundColor: colorScheme.error),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm == true) {
+      await DatabaseService.deleteBook(_currentBook.id);
+      if (mounted) {
+        Navigator.pop(context); // Go back
+      }
+    }
   }
 
   Widget _buildStatRow(

@@ -9,6 +9,10 @@ import 'new_book_screen.dart';
 import 'search_screen.dart';
 import 'settings_screen.dart';
 import 'dart:async';
+import 'package:fl_chart/fl_chart.dart';
+import 'package:flutter_heatmap_calendar/flutter_heatmap_calendar.dart';
+import 'package:flutter/services.dart';
+import '../services/stats_service.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -24,6 +28,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Timer? _scrollTimer;
   int _currentFeaturePage = 0;
   bool _isStackHovered = false;
+  int _totalWordCount = 0;
+  int _currentStreak = 0;
+  Map<DateTime, int> _dailyStats = {};
+  List<Book> _allBooks = [];
 
   final List<Map<String, dynamic>> _features = [
     {
@@ -102,11 +110,20 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   Future<void> _loadData() async {
     final books = await DatabaseService.getAllBooks();
+    final dailyStats = await DatabaseService.getDailyStats();
+    final streak = await StatsService.getCurrentStreak();
+
     // Sort by updated date descending and take top 3
-    books.sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
+    final recentBooks = List<Book>.from(books);
+    recentBooks.sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
+
     if (mounted) {
       setState(() {
-        _recentBooks = books.take(3).toList();
+        _allBooks = books;
+        _recentBooks = recentBooks.take(3).toList();
+        _dailyStats = dailyStats;
+        _currentStreak = streak;
+        _totalWordCount = StatsService.getTotalWordCount(books);
         _isLoading = false;
       });
     }
@@ -153,9 +170,105 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   },
                 ),
                 IconButton(
-                  icon: const Icon(Icons.person_outline),
+                  icon: const Icon(Icons.info_outline),
+                  tooltip: 'Credits',
                   onPressed: () {
-                    // Profile/Account placeholder
+                    final colorScheme = Theme.of(context).colorScheme;
+                    showDialog(
+                      context: context,
+                      builder: (context) => AlertDialog(
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(24),
+                        ),
+                        backgroundColor: colorScheme.surface.withValues(
+                          alpha: 0.9,
+                        ),
+                        title: Row(
+                          children: [
+                            const Text('🪶 OpenDraft — Credits'),
+                            const Spacer(),
+                            IconButton(
+                              icon: const Icon(Icons.close),
+                              onPressed: () => Navigator.pop(context),
+                            ),
+                          ],
+                        ),
+                        content: SizedBox(
+                          width: 500,
+                          child: SingleChildScrollView(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(
+                                  'This file acknowledges the people, tools, and communities that made OpenDraft possible.',
+                                  style: TextStyle(
+                                    color: colorScheme.onSurface.withValues(
+                                      alpha: 0.7,
+                                    ),
+                                    fontStyle: FontStyle.italic,
+                                  ),
+                                ),
+                                const SizedBox(height: 24),
+                                _buildCreditsSection(
+                                  context,
+                                  '👤 Author',
+                                  'Ashish Chawla\nCreator, designer, and lead developer of OpenDraft\nGitHub: https://github.com/AshishChawla06',
+                                ),
+                                _buildCreditsSection(
+                                  context,
+                                  '🎨 Design & UX',
+                                  'Hybrid Design System\nOpenDraft’s interface is built on a custom blend of:\n\n'
+                                      '• Liquid Glass (iOS‑style) translucency\n'
+                                      '• Material You Expressive (Pixel‑style) motion, color, and shape\n'
+                                      '• Dynamic color tinting\n'
+                                      '• SVG‑driven expressive backgrounds\n'
+                                      '• Accessibility‑first typography and layout',
+                                ),
+                                _buildCreditsSection(
+                                  context,
+                                  '🧠 Inspiration & Foundations',
+                                  'OpenDraft draws inspiration from:\n\n'
+                                      '• Material You (Google) — expressive color, motion, and shape\n'
+                                      '• iOS Glassmorphism — frosted translucency and depth\n'
+                                      '• SCP Foundation community — templates, structure, and creative energy\n'
+                                      '• Modern writing tools — modular scene‑based drafting and distraction‑free editors\n\n'
+                                      'SCP‑related concepts remain under CC BY‑SA 3.0.',
+                                ),
+                                _buildCreditsSection(
+                                  context,
+                                  '🛠️ Technologies & Tools',
+                                  'OpenDraft is built using:\n\n'
+                                      '• Flutter — cross‑platform UI toolkit\n'
+                                      '• Dart — primary programming language\n'
+                                      '• flutter_svg — SVG rendering\n'
+                                      '• super_editor / quill (planned) — rich text editing\n'
+                                      '• Material 3 components — icons, shapes, motion\n'
+                                      '• GitHub — version control and collaboration',
+                                ),
+                                _buildCreditsSection(
+                                  context,
+                                  '💬 Community',
+                                  'OpenDraft is shaped by feedback from:\n\n'
+                                      '• Writers\n'
+                                      '• SCP authors\n'
+                                      '• Worldbuilders\n'
+                                      '• Open‑source contributors\n\n'
+                                      'Your ideas, issues, and pull requests help the project grow.',
+                                ),
+                                _buildCreditsSection(
+                                  context,
+                                  '🛡️ Legal Notes',
+                                  'OpenDraft is not affiliated with the SCP Foundation or any official SCP wiki.\n'
+                                      'All SCP‑related content is governed by CC BY‑SA 3.0.\n\n'
+                                      'If you believe your work should be credited here, please open an issue or pull request.',
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    );
                   },
                 ),
               ],
@@ -248,140 +361,152 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   child: MouseRegion(
                     onEnter: (_) => setState(() => _isStackHovered = true),
                     onExit: (_) => setState(() => _isStackHovered = false),
-                    child: SizedBox(
-                      height: 400, // Ensure enough height for vertical fan
-                      child: Stack(
-                        alignment: Alignment.center,
-                        clipBehavior: Clip.none,
-                        children: [
-                          if (_recentBooks.isEmpty)
-                            // Fallback if no books
-                            _buildDecorativeCard(
-                              offset: Offset.zero,
-                              opacity: 0.3,
-                              isMain: true,
-                            )
-                          else
-                            // Render up to 3 cards in reverse order (bottom first)
-                            ..._recentBooks
-                                .take(3)
-                                .toList()
-                                .asMap()
-                                .entries
-                                .map((entry) {
-                                  final index = entry.key;
-                                  final book = entry.value;
-                                  // 0 = Top, 1 = Middle, 2 = Bottom (visually)
-                                  // But we render in reverse order of index likely, or z-index needs management.
-                                  // Actually, we want index 0 on TOP. So standard map order puts 0 at bottom of stack in Flutter Stack?
-                                  // No, first child is bottom-most.
-                                  // So we need to reverse the list OR manage z-indexes.
-                                  // Let's iterate normally but calculate transforms based on visual stack order.
-                                  // We want index 0 (Most recent) on TOP. So it should be LAST in the children list.
-                                  return MapEntry(index, book);
-                                })
-                                .toList()
-                                .reversed // Reverse so index 0 is drawn LAST (Top)
-                                .map((entry) {
-                                  final index = entry.key; // 0, 1, 2
-                                  final book = entry.value;
+                    child: GestureDetector(
+                      onLongPress: () {
+                        HapticFeedback.mediumImpact();
+                        setState(() => _isStackHovered = !_isStackHovered);
+                      },
+                      child: SizedBox(
+                        height: 400, // Ensure enough height for vertical fan
+                        child: Stack(
+                          alignment: Alignment.center,
+                          clipBehavior: Clip.none,
+                          children: [
+                            if (_recentBooks.isEmpty)
+                              // Fallback if no books
+                              _buildDecorativeCard(
+                                offset: Offset.zero,
+                                opacity: 0.3,
+                                isMain: true,
+                              )
+                            else
+                              // Render up to 3 cards in reverse order (bottom first)
+                              ..._recentBooks
+                                  .take(3)
+                                  .toList()
+                                  .asMap()
+                                  .entries
+                                  .map((entry) {
+                                    final index = entry.key;
+                                    final book = entry.value;
+                                    // 0 = Top, 1 = Middle, 2 = Bottom (visually)
+                                    // But we render in reverse order of index likely, or z-index needs management.
+                                    // Actually, we want index 0 on TOP. So standard map order puts 0 at bottom of stack in Flutter Stack?
+                                    // No, first child is bottom-most.
+                                    // So we need to reverse the list OR manage z-indexes.
+                                    // Let's iterate normally but calculate transforms based on visual stack order.
+                                    // We want index 0 (Most recent) on TOP. So it should be LAST in the children list.
+                                    return MapEntry(index, book);
+                                  })
+                                  .toList()
+                                  .reversed // Reverse so index 0 is drawn LAST (Top)
+                                  .map((entry) {
+                                    final index = entry.key; // 0, 1, 2
+                                    final book = entry.value;
 
-                                  // Calculate target transform based on hover
-                                  double xOffset = 0;
-                                  double yOffset = 0;
-                                  double rotation = 0;
-                                  double scale =
-                                      1.0 -
-                                      (index * 0.05); // Standard scale down
-                                  double opacity =
-                                      1.0 - (index * 0.2); // Faded deeper cards
+                                    // Calculate target transform based on hover
+                                    double xOffset = 0;
+                                    double yOffset = 0;
+                                    double rotation = 0;
+                                    double scale =
+                                        1.0 -
+                                        (index * 0.05); // Standard scale down
+                                    double opacity =
+                                        1.0 -
+                                        (index * 0.2); // Faded deeper cards
 
-                                  if (_isStackHovered) {
-                                    // Fan out horizontally
-                                    // Index 0 (Top): Center
-                                    // Index 1: Left
-                                    // Index 2: Right
-                                    if (index == 0) {
-                                      // Top card moves up slightly
-                                      yOffset = -20;
-                                      scale = 1.05;
-                                      opacity = 1.0;
-                                    } else if (index == 1) {
-                                      // Second card moves left
-                                      xOffset = -180; // Increased spacing
-                                      rotation = -0.05; // Reduced rotation
-                                      opacity = 1.0;
-                                      scale = 1.0;
-                                    } else if (index == 2) {
-                                      // Third card moves right
-                                      xOffset = 180; // Increased spacing
-                                      rotation = 0.05; // Reduced rotation
-                                      opacity = 1.0;
-                                      scale = 1.0;
+                                    if (_isStackHovered) {
+                                      // Fan out horizontally
+                                      // Index 0 (Top): Center
+                                      // Index 1: Left
+                                      // Index 2: Right
+                                      if (index == 0) {
+                                        // Top card moves up slightly
+                                        yOffset = -20;
+                                        scale = 1.05;
+                                        opacity = 1.0;
+                                      } else if (index == 1) {
+                                        // Second card moves left
+                                        xOffset = -140; // Balanced spacing
+                                        rotation = -0.05; // Reduced rotation
+                                        opacity = 1.0;
+                                        scale = 1.0;
+                                      } else if (index == 2) {
+                                        // Third card moves right
+                                        xOffset = 140; // Balanced spacing
+                                        rotation = 0.05; // Reduced rotation
+                                        opacity = 1.0;
+                                        scale = 1.0;
+                                      }
+                                    } else {
+                                      // Stacked state
+                                      // Index 0: (0,0)
+                                      // Index 1: (10, 10)
+                                      // Index 2: (20, 20)
+                                      xOffset = index * 10.0;
+                                      yOffset = index * 10.0;
                                     }
-                                  } else {
-                                    // Stacked state
-                                    // Index 0: (0,0)
-                                    // Index 1: (10, 10)
-                                    // Index 2: (20, 20)
-                                    xOffset = index * 10.0;
-                                    yOffset = index * 10.0;
-                                  }
 
-                                  return AnimatedPositioned(
-                                    duration: const Duration(milliseconds: 300),
-                                    curve: Curves.easeOutBack,
-                                    top: 0,
-                                    bottom: 0,
-                                    left: 0,
-                                    right: 0,
-                                    child: Center(
-                                      child: Transform.translate(
-                                        offset: Offset(xOffset, yOffset),
-                                        child: Transform.rotate(
-                                          angle: rotation,
-                                          child: Transform.scale(
-                                            scale: scale,
-                                            child: GestureDetector(
-                                              onTap: () {
-                                                Navigator.push(
-                                                  context,
-                                                  MaterialPageRoute(
-                                                    builder: (context) =>
-                                                        BookDetailScreen(
-                                                          book: book,
-                                                        ), // Open details
+                                    return AnimatedPositioned(
+                                      duration: const Duration(
+                                        milliseconds: 300,
+                                      ),
+                                      curve: Curves.easeOutBack,
+                                      top: 0,
+                                      bottom: 0,
+                                      left: 0,
+                                      right: 0,
+                                      child: Center(
+                                        child: Transform.translate(
+                                          offset: Offset(xOffset, yOffset),
+                                          child: Transform.rotate(
+                                            angle: rotation,
+                                            child: Transform.scale(
+                                              scale: scale,
+                                              child: GestureDetector(
+                                                onTap: () {
+                                                  Navigator.push(
+                                                    context,
+                                                    MaterialPageRoute(
+                                                      builder: (context) =>
+                                                          BookDetailScreen(
+                                                            book: book,
+                                                          ), // Open details
+                                                    ),
+                                                  ).then((_) => _loadData());
+                                                },
+                                                child: MouseRegion(
+                                                  cursor: _isStackHovered
+                                                      ? SystemMouseCursors.click
+                                                      : SystemMouseCursors
+                                                            .basic,
+                                                  child: GlassContainer(
+                                                    width: 200,
+                                                    height: 280,
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                          24,
+                                                        ),
+                                                    opacity: opacity * 0.2,
+                                                    // Enhance opacity for readability when hovered
+                                                    color: _isStackHovered
+                                                        ? colorScheme.surface
+                                                        : null,
+                                                    child:
+                                                        _buildDraftPreviewContent(
+                                                          book,
+                                                        ),
                                                   ),
-                                                ).then((_) => _loadData());
-                                              },
-                                              child: MouseRegion(
-                                                cursor: _isStackHovered
-                                                    ? SystemMouseCursors.click
-                                                    : SystemMouseCursors.basic,
-                                                child: GlassContainer(
-                                                  width: 200,
-                                                  height: 280,
-                                                  borderRadius:
-                                                      BorderRadius.circular(24),
-                                                  opacity: opacity * 0.2,
-                                                  // Enhance opacity for readability when hovered
-                                                  color: _isStackHovered
-                                                      ? colorScheme.surface
-                                                      : null,
-                                                  child:
-                                                      _buildDraftPreviewContent(
-                                                        book,
-                                                      ),
                                                 ),
                                               ),
                                             ),
                                           ),
                                         ),
                                       ),
-                                    ),
-                                  );
-                                }),
-                        ],
+                                    );
+                                  }),
+                          ],
+                        ),
                       ),
                     ),
                   ),
@@ -475,6 +600,129 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   color: colorScheme.onSurface.withValues(alpha: 0.7),
                 ),
               ],
+            ),
+
+            const SizedBox(height: 64),
+
+            // Stats Section
+            Text(
+              'Your progress',
+              style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                fontWeight: FontWeight.bold,
+                color: colorScheme.onSurface,
+              ),
+            ),
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                Expanded(
+                  child: _buildStatMiniCard(
+                    'Total Words',
+                    _totalWordCount.toString(),
+                    Icons.text_fields,
+                    Colors.blue,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: _buildStatMiniCard(
+                    'Streak',
+                    '$_currentStreak days',
+                    Icons.local_fire_department,
+                    Colors.orange,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: _buildStatMiniCard(
+                    'Projects',
+                    _allBooks.length.toString(),
+                    Icons.book,
+                    Colors.purple,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 24),
+
+            // Heatmap
+            GlassContainer(
+              padding: const EdgeInsets.all(20),
+              borderRadius: BorderRadius.circular(32),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.calendar_today,
+                        size: 16,
+                        color: colorScheme.primary,
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        'Writing Activity',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: colorScheme.onSurface,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 20),
+                  HeatMap(
+                    datasets: _dailyStats,
+                    colorMode: ColorMode.opacity,
+                    showText: false,
+                    scrollable: true,
+                    colorsets: {
+                      1: colorScheme.primary.withValues(alpha: 0.2),
+                      500: colorScheme.primary.withValues(alpha: 0.4),
+                      1000: colorScheme.primary.withValues(alpha: 0.6),
+                      2000: colorScheme.primary.withValues(alpha: 0.8),
+                      5000: colorScheme.primary,
+                    },
+                    onClick: (value) {
+                      ScaffoldMessenger.of(
+                        context,
+                      ).showSnackBar(SnackBar(content: Text(value.toString())));
+                    },
+                  ),
+                ],
+              ),
+            ),
+
+            const SizedBox(height: 24),
+
+            // Chart
+            GlassContainer(
+              height: 250,
+              padding: const EdgeInsets.all(24),
+              borderRadius: BorderRadius.circular(32),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.show_chart,
+                        size: 16,
+                        color: colorScheme.secondary,
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        'Word Count Trend',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: colorScheme.onSurface,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 32),
+                  Expanded(child: _buildLineChart()),
+                ],
+              ),
             ),
 
             const SizedBox(height: 64),
@@ -903,7 +1151,115 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
+  Widget _buildStatMiniCard(
+    String label,
+    String value,
+    IconData icon,
+    Color color,
+  ) {
+    return GlassContainer(
+      padding: const EdgeInsets.all(16),
+      borderRadius: BorderRadius.circular(24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, color: color, size: 20),
+          const SizedBox(height: 12),
+          Text(
+            value,
+            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+          ),
+          Text(
+            label,
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+              color: Theme.of(
+                context,
+              ).colorScheme.onSurface.withValues(alpha: 0.5),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLineChart() {
+    if (_dailyStats.isEmpty)
+      return const Center(child: Text('No writing data yet'));
+
+    final sortedDates = _dailyStats.keys.toList()..sort();
+    final spots = <FlSpot>[];
+
+    for (int i = 0; i < sortedDates.length; i++) {
+      spots.add(FlSpot(i.toDouble(), _dailyStats[sortedDates[i]]!.toDouble()));
+    }
+
+    // Only show last 7 days of activity in the chart for clarity
+    final displaySpots = spots.length > 7
+        ? spots.sublist(spots.length - 7)
+        : spots;
+    // Normalized X for the sublist
+    final normalizedSpots = <FlSpot>[];
+    for (int i = 0; i < displaySpots.length; i++) {
+      normalizedSpots.add(FlSpot(i.toDouble(), displaySpots[i].y));
+    }
+
+    return LineChart(
+      LineChartData(
+        gridData: const FlGridData(show: false),
+        titlesData: const FlTitlesData(show: false),
+        borderData: FlBorderData(show: false),
+        lineBarsData: [
+          LineChartBarData(
+            spots: normalizedSpots,
+            isCurved: true,
+            color: Theme.of(context).colorScheme.primary,
+            barWidth: 4,
+            isStrokeCapRound: true,
+            dotData: const FlDotData(show: false),
+            belowBarData: BarAreaData(
+              show: true,
+              color: Theme.of(
+                context,
+              ).colorScheme.primary.withValues(alpha: 0.1),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   String _formatDate(DateTime date) {
     return '${date.day}/${date.month}/${date.year}';
+  }
+
+  Widget _buildCreditsSection(
+    BuildContext context,
+    String title,
+    String content,
+  ) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title,
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.bold,
+              color: colorScheme.primary,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            content,
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              height: 1.5,
+              color: colorScheme.onSurface.withValues(alpha: 0.9),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
