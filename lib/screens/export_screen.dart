@@ -6,6 +6,7 @@ import '../widgets/glass_container.dart';
 import '../widgets/glass_background.dart';
 import '../widgets/logo_header.dart';
 import '../widgets/document_type_badge.dart';
+import 'settings_screen.dart';
 
 class ExportScreen extends StatefulWidget {
   final Book book;
@@ -40,7 +41,14 @@ class _ExportScreenState extends State<ExportScreen> {
           actions: [
             IconButton(
               icon: const Icon(Icons.settings_outlined),
-              onPressed: () {},
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const SettingsScreen(),
+                  ),
+                );
+              },
               color: colorScheme.onSurface,
             ),
           ],

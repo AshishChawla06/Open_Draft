@@ -28,6 +28,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Timer? _scrollTimer;
   int _currentFeaturePage = 0;
   bool _isStackHovered = false;
+  int? _hoveredCardIndex;
   int _totalWordCount = 0;
   int _currentStreak = 0;
   Map<DateTime, int> _dailyStats = {};
@@ -355,9 +356,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   ),
                 ),
                 const SizedBox(width: 32),
-                // Interactive Drafts Stack
                 SizedBox(
-                  width: 300,
+                  width:
+                      450, // Increased width to prevent clipping of fanned-out cards
                   child: MouseRegion(
                     onEnter: (_) => setState(() => _isStackHovered = true),
                     onExit: (_) => setState(() => _isStackHovered = false),
@@ -381,88 +382,91 @@ class _DashboardScreenState extends State<DashboardScreen> {
                               )
                             else
                               // Render up to 3 cards in reverse order (bottom first)
-                              ..._recentBooks
-                                  .take(3)
-                                  .toList()
-                                  .asMap()
-                                  .entries
-                                  .map((entry) {
-                                    final index = entry.key;
-                                    final book = entry.value;
-                                    // 0 = Top, 1 = Middle, 2 = Bottom (visually)
-                                    // But we render in reverse order of index likely, or z-index needs management.
-                                    // Actually, we want index 0 on TOP. So standard map order puts 0 at bottom of stack in Flutter Stack?
-                                    // No, first child is bottom-most.
-                                    // So we need to reverse the list OR manage z-indexes.
-                                    // Let's iterate normally but calculate transforms based on visual stack order.
-                                    // We want index 0 (Most recent) on TOP. So it should be LAST in the children list.
-                                    return MapEntry(index, book);
-                                  })
-                                  .toList()
-                                  .reversed // Reverse so index 0 is drawn LAST (Top)
-                                  .map((entry) {
-                                    final index = entry.key; // 0, 1, 2
-                                    final book = entry.value;
+                              ...() {
+                                final entries = _recentBooks
+                                    .take(3)
+                                    .toList()
+                                    .asMap()
+                                    .entries
+                                    .toList();
 
-                                    // Calculate target transform based on hover
-                                    double xOffset = 0;
-                                    double yOffset = 0;
-                                    double rotation = 0;
-                                    double scale =
-                                        1.0 -
-                                        (index * 0.05); // Standard scale down
-                                    double opacity =
-                                        1.0 -
-                                        (index * 0.2); // Faded deeper cards
+                                // Sort entries so that the hovered card is last (rendered on top)
+                                // and others maintain reverse order (2, 1, 0) for proper stacking.
+                                entries.sort((a, b) {
+                                  if (_hoveredCardIndex != null) {
+                                    if (a.key == _hoveredCardIndex) return 1;
+                                    if (b.key == _hoveredCardIndex) return -1;
+                                  }
+                                  return b.key.compareTo(a.key);
+                                });
 
-                                    if (_isStackHovered) {
-                                      // Fan out horizontally
-                                      // Index 0 (Top): Center
-                                      // Index 1: Left
-                                      // Index 2: Right
-                                      if (index == 0) {
-                                        // Top card moves up slightly
-                                        yOffset = -20;
-                                        scale = 1.05;
-                                        opacity = 1.0;
-                                      } else if (index == 1) {
-                                        // Second card moves left
-                                        xOffset = -140; // Balanced spacing
-                                        rotation = -0.05; // Reduced rotation
-                                        opacity = 1.0;
-                                        scale = 1.0;
-                                      } else if (index == 2) {
-                                        // Third card moves right
-                                        xOffset = 140; // Balanced spacing
-                                        rotation = 0.05; // Reduced rotation
-                                        opacity = 1.0;
-                                        scale = 1.0;
-                                      }
-                                    } else {
-                                      // Stacked state
-                                      // Index 0: (0,0)
-                                      // Index 1: (10, 10)
-                                      // Index 2: (20, 20)
-                                      xOffset = index * 10.0;
-                                      yOffset = index * 10.0;
+                                return entries.map((entry) {
+                                  final index = entry.key;
+                                  final book = entry.value;
+
+                                  // Calculate target transform based on hover
+                                  double xOffset = 0;
+                                  double yOffset = 0;
+                                  double rotation = 0;
+                                  double scale = 1.0 - (index * 0.05);
+                                  double opacity = 1.0 - (index * 0.2);
+
+                                  if (_isStackHovered) {
+                                    if (index == 0) {
+                                      yOffset = -20;
+                                      scale = 1.05;
+                                      opacity = 1.0;
+                                    } else if (index == 1) {
+                                      xOffset = -140;
+                                      rotation = -0.05;
+                                      opacity = 1.0;
+                                      scale = 1.0;
+                                    } else if (index == 2) {
+                                      xOffset = 140;
+                                      rotation = 0.05;
+                                      opacity = 1.0;
+                                      scale = 1.0;
                                     }
+                                  } else {
+                                    xOffset = index * 10.0;
+                                    yOffset = index * 10.0;
+                                  }
 
-                                    return AnimatedPositioned(
-                                      duration: const Duration(
-                                        milliseconds: 300,
-                                      ),
-                                      curve: Curves.easeOutBack,
-                                      top: 0,
-                                      bottom: 0,
-                                      left: 0,
-                                      right: 0,
-                                      child: Center(
-                                        child: Transform.translate(
-                                          offset: Offset(xOffset, yOffset),
-                                          child: Transform.rotate(
-                                            angle: rotation,
-                                            child: Transform.scale(
-                                              scale: scale,
+                                  // Additional visual pop for the specifically hovered card
+                                  if (_hoveredCardIndex == index) {
+                                    scale *= 1.05;
+                                    yOffset -= 10;
+                                  }
+
+                                  return AnimatedPositioned(
+                                    key: ValueKey(book.id),
+                                    duration: const Duration(milliseconds: 300),
+                                    curve: Curves.easeOutBack,
+                                    top: 0,
+                                    bottom: 0,
+                                    left: 0,
+                                    right: 0,
+                                    child: Center(
+                                      child: Transform.translate(
+                                        offset: Offset(xOffset, yOffset),
+                                        child: Transform.rotate(
+                                          angle: rotation,
+                                          child: Transform.scale(
+                                            scale: scale,
+                                            child: MouseRegion(
+                                              onEnter: (_) => setState(
+                                                () => _hoveredCardIndex = index,
+                                              ),
+                                              onExit: (_) => setState(() {
+                                                // Only clear if we are exiting the specific card
+                                                // and not entering another card immediately?
+                                                // Actually simple clear is fine, but might flicker if gaps.
+                                                // But since cards overlap, enter on next card fires.
+                                                if (_hoveredCardIndex ==
+                                                    index) {
+                                                  _hoveredCardIndex = null;
+                                                }
+                                              }),
                                               child: GestureDetector(
                                                 onTap: () {
                                                   Navigator.push(
@@ -471,7 +475,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                                       builder: (context) =>
                                                           BookDetailScreen(
                                                             book: book,
-                                                          ), // Open details
+                                                          ),
                                                     ),
                                                   ).then((_) => _loadData());
                                                 },
@@ -487,8 +491,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                                         BorderRadius.circular(
                                                           24,
                                                         ),
-                                                    opacity: opacity * 0.2,
-                                                    // Enhance opacity for readability when hovered
+                                                    opacity:
+                                                        opacity *
+                                                        0.2, // Base opacity
+                                                    // Highlight if hovered
+                                                    // border handled by GlassContainer internally
                                                     color: _isStackHovered
                                                         ? colorScheme.surface
                                                         : null,
@@ -503,8 +510,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                           ),
                                         ),
                                       ),
-                                    );
-                                  }),
+                                    ),
+                                  );
+                                });
+                              }(),
                           ],
                         ),
                       ),

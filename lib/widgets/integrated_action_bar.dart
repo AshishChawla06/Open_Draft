@@ -42,22 +42,6 @@ class IntegratedActionBar extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          _buildSavedPill(context),
-          const SizedBox(width: 8),
-          _buildIconButton(
-            context,
-            onShowOutline,
-            Icons.format_list_bulleted,
-            'Outline',
-          ),
-          _buildInfoButton(context),
-          const SizedBox(width: 12),
-          Container(
-            height: 24,
-            width: 1,
-            color: colorScheme.outline.withValues(alpha: 0.2),
-          ),
-          const SizedBox(width: 12),
           _buildActionButton(
             context,
             EditorMode.write,
@@ -100,6 +84,22 @@ class IntegratedActionBar extends StatelessWidget {
             'Export',
             false,
           ),
+          const SizedBox(width: 12),
+          Container(
+            height: 24,
+            width: 1,
+            color: colorScheme.outline.withValues(alpha: 0.2),
+          ),
+          const SizedBox(width: 12),
+          _buildSavedPill(context),
+          const SizedBox(width: 8),
+          _buildIconButton(
+            context,
+            onShowOutline,
+            Icons.format_list_bulleted,
+            'Outline',
+          ),
+          _buildInfoButton(context),
         ],
       ),
     );

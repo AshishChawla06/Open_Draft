@@ -1,60 +1,109 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
+import 'package:flutter/foundation.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:file_picker/file_picker.dart';
 import '../models/book.dart';
-import '../models/chapter.dart';
+import 'markdown_export_service.dart';
+import 'pdf_export_service.dart';
+import 'web/web_saver.dart';
 
 enum ExportFormat { markdown, plainText, html, docx, pdf }
 
 class ExportService {
   /// Export book to the specified format and share/save the file
   static Future<void> exportBook(Book book, ExportFormat format) async {
-    final StringBuffer buffer = StringBuffer();
     final String extension = _getExtension(format);
+    List<int> dataBytes;
 
-    // Title & Metadata
-    if (format == ExportFormat.html || format == ExportFormat.docx) {
-      buffer.writeln(_getHtmlHeader(book));
+    // Generate Content
+    if (format == ExportFormat.pdf) {
+      dataBytes = await PdfExportService.exportToPdf(book);
     } else {
-      buffer.writeln('# ${book.title}');
-      buffer.writeln('By ${book.author}');
-      if (book.description != null) {
-        buffer.writeln('\n${book.description}');
+      String content = '';
+      switch (format) {
+        case ExportFormat.markdown:
+          content = MarkdownExportService.exportToMarkdown(book);
+          break;
+        case ExportFormat.plainText:
+          // Use Markdown export but strip headers if needed, or just use markdown text as base
+          // For now, raw markdown is acceptable as 'Source Text', or specifically parse for plain text
+          // Re-using markdown is a safe fallback for plain text in MVP
+          content = MarkdownExportService.exportToMarkdown(book);
+          break;
+        case ExportFormat.html:
+          content = MarkdownExportService.exportToHTML(book);
+          break;
+        case ExportFormat.docx:
+          // DOCX hack: Export as HTML with .docx extension (Word handles this gracefully)
+          content = MarkdownExportService.exportToHTML(book);
+          break;
+        default:
+          content = '';
       }
-      buffer.writeln('\n---\n');
+      dataBytes = utf8.encode(content);
     }
 
-    // Chapters
-    for (final chapter in book.chapters) {
-      if (format == ExportFormat.html || format == ExportFormat.docx) {
-        buffer.writeln(_convertChapterToHtml(chapter));
-      } else {
-        buffer.writeln('## ${chapter.title}\n');
-        buffer.writeln(_convertContent(chapter.content, format));
-        buffer.writeln('\n');
-      }
-    }
+    // Save File
+    await _saveFile(book.title, extension, Uint8List.fromList(dataBytes));
+  }
 
-    // Footer
-    if (format == ExportFormat.html || format == ExportFormat.docx) {
-      buffer.writeln(_getHtmlFooter());
-    }
+  static Future<void> _saveFile(
+    String title,
+    String extension,
+    Uint8List bytes,
+  ) async {
+    final safeTitle = title.replaceAll(RegExp(r'[<>:"/\\|?*]'), '_');
+    final fileName = '$safeTitle$extension';
 
-    // Save & Share
-    try {
+    if (!kIsWeb && (Platform.isAndroid || Platform.isIOS)) {
+      // Mobile: Share sheet
       final directory = await getApplicationDocumentsDirectory();
-      final safeTitle = book.title.replaceAll(RegExp(r'[<>:"/\\|?*]'), '_');
-      final file = File('${directory.path}/$safeTitle$extension');
+      final file = File('${directory.path}/$fileName');
+      await file.writeAsBytes(bytes);
+      await Share.shareXFiles([XFile(file.path)], subject: 'Export: $title');
+    } else {
+      // Desktop & Web: File Picker (Save As)
+      String? outputFile;
 
-      await file.writeAsString(buffer.toString());
+      if (kIsWeb) {
+        // Web Export (Direct Download)
+        saveFileWeb(bytes, fileName);
+        return;
+      }
 
-      await Share.shareXFiles([
-        XFile(file.path),
-      ], subject: 'Export: ${book.title}');
-    } catch (e) {
-      print('Error exporting book: $e');
-      rethrow;
+      // Known issue: saveFile is not implemented on Windows/Web for some file_picker versions
+      // So we force directory picker on Windows/Linux to avoid UnimplementedError
+      if (Platform.isWindows || Platform.isLinux) {
+        final String? selectedDirectory = await FilePicker.platform
+            .getDirectoryPath(dialogTitle: 'Select Destination Folder');
+        if (selectedDirectory != null) {
+          outputFile = '$selectedDirectory${Platform.pathSeparator}$fileName';
+        }
+      } else {
+        try {
+          outputFile = await FilePicker.platform.saveFile(
+            dialogTitle: 'Export $title',
+            fileName: fileName,
+            bytes: bytes,
+            type: FileType.any,
+          );
+        } catch (e) {
+          rethrow;
+        }
+      }
+
+      if (outputFile != null) {
+        // Desktop: saveFile returns path, we must write
+        if (!kIsWeb) {
+          final file = File(outputFile);
+          await file.writeAsBytes(bytes);
+        }
+      } else {
+        // User canceled
+      }
     }
   }
 
@@ -71,120 +120,5 @@ class ExportService {
       case ExportFormat.pdf:
         return '.pdf';
     }
-  }
-
-  static String _convertContent(String content, ExportFormat format) {
-    if (content.trim().isEmpty) return '';
-
-    try {
-      if (content.startsWith('{') || content.startsWith('[')) {
-        final json = jsonDecode(content);
-        final ops = json is Map ? json['ops'] as List : json as List;
-
-        final buffer = StringBuffer();
-        for (final op in ops) {
-          if (op['insert'] is String) {
-            final text = op['insert'] as String;
-            if (format == ExportFormat.markdown) {
-              // Basic Markdown processing
-              if (op['attributes'] != null) {
-                final attrs = op['attributes'] as Map;
-                if (attrs['bold'] == true) {
-                  buffer.write('**$text**');
-                } else if (attrs['italic'] == true) {
-                  buffer.write('*$text*');
-                } else if (attrs['header'] != null) {
-                  buffer.write('\n# $text');
-                } else {
-                  buffer.write(text);
-                }
-              } else {
-                buffer.write(text);
-              }
-            } else {
-              // Plain text
-              buffer.write(text);
-            }
-          }
-        }
-        return buffer.toString();
-      }
-    } catch (e) {
-      print('Error parsing delta: $e');
-    }
-
-    // Fallback: return raw content
-    return content;
-  }
-
-  static String _getHtmlHeader(Book book) {
-    return '''
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>${book.title}</title>
-    <style>
-        body { font-family: serif; max-width: 800px; margin: 0 auto; padding: 20px; line-height: 1.6; }
-        h1 { text-align: center; }
-        .author { text-align: center; font-style: italic; margin-bottom: 40px; }
-        .chapter-title { margin-top: 40px; page-break-before: always; }
-    </style>
-</head>
-<body>
-    <h1>${book.title}</h1>
-    <div class="author">By ${book.author}</div>
-    ${book.description != null ? '<p>${book.description}</p>' : ''}
-    <hr>
-''';
-  }
-
-  static String _getHtmlFooter() {
-    return '</body></html>';
-  }
-
-  static String _convertChapterToHtml(Chapter chapter) {
-    final buffer = StringBuffer();
-    buffer.writeln('<h2 class="chapter-title">${chapter.title}</h2>');
-
-    // Html conversion logic for Delta
-    // Ideally use vsc_quill_delta_to_html, but here we do a basic pass
-    buffer.writeln('<div class="chapter-content">');
-
-    try {
-      if (chapter.content.startsWith('{') || chapter.content.startsWith('[')) {
-        final json = jsonDecode(chapter.content);
-        final ops = json is Map ? json['ops'] as List : json as List;
-
-        for (final op in ops) {
-          if (op['insert'] is String) {
-            var text = op['insert'] as String;
-
-            // Escape HTML
-            text = text
-                .replaceAll('&', '&amp;')
-                .replaceAll('<', '&lt;')
-                .replaceAll('>', '&gt;')
-                .replaceAll('\n', '<br>');
-
-            if (op['attributes'] != null) {
-              final attrs = op['attributes'] as Map;
-              if (attrs['bold'] == true) text = '<b>$text</b>';
-              if (attrs['italic'] == true) text = '<i>$text</i>';
-              // Add more styles as needed
-            }
-            buffer.write(text);
-          }
-        }
-      } else {
-        buffer.write(chapter.content);
-      }
-    } catch (e) {
-      buffer.write(chapter.content);
-    }
-
-    buffer.writeln('</div>');
-    return buffer.toString();
   }
 }

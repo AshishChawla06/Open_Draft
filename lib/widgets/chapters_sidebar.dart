@@ -4,6 +4,7 @@ import '../models/chapter.dart';
 import '../screens/editor_screen.dart';
 import '../scp/screens/scp_editor_screen.dart';
 import '../models/document_type.dart';
+import '../dnd/screens/adventure_editor_screen.dart';
 import 'package:uuid/uuid.dart';
 import 'dart:convert';
 import '../services/database_service.dart';
@@ -45,7 +46,9 @@ class ChaptersSidebar extends StatelessWidget {
             child: Row(
               children: [
                 Text(
-                  'Chapters',
+                  book.documentType == DocumentType.dnd_adventure
+                      ? 'Acts & Scenes'
+                      : 'Chapters',
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
                     fontWeight: FontWeight.bold,
                   ),
@@ -62,12 +65,27 @@ class ChaptersSidebar extends StatelessWidget {
 
           // List
           Expanded(
-            child: ListView.builder(
-              itemCount:
-                  sortedChapters.length + 1, // +1 for "New Chapter" button
+            child: ReorderableListView.builder(
+              buildDefaultDragHandles: false,
+              onReorder: (oldIndex, newIndex) async {
+                if (oldIndex < newIndex) {
+                  newIndex -= 1;
+                }
+                final Chapter item = sortedChapters.removeAt(oldIndex);
+                sortedChapters.insert(newIndex, item);
+
+                // Update order in DB
+                for (int i = 0; i < sortedChapters.length; i++) {
+                  final chapter = sortedChapters[i].copyWith(order: i + 1);
+                  await DatabaseService.updateChapter(chapter);
+                }
+              },
+              itemCount: sortedChapters.length + 1,
               itemBuilder: (context, index) {
                 if (index == sortedChapters.length) {
+                  // "New Chapter" button - not reorderable
                   return Padding(
+                    key: const ValueKey('add_button'),
                     padding: const EdgeInsets.all(16.0),
                     child: OutlinedButton.icon(
                       onPressed: () async {
@@ -75,42 +93,26 @@ class ChaptersSidebar extends StatelessWidget {
                           id: const Uuid().v4(),
                           title: book.documentType == DocumentType.scp
                               ? 'New SCP Section'
+                              : book.documentType == DocumentType.dnd_adventure
+                              ? 'New Scene'
                               : 'New Chapter',
                           content: jsonEncode([
                             {'insert': '\n'},
                           ]),
-                          order: sortedChapters.length,
+                          order: sortedChapters.length + 1,
                           createdAt: DateTime.now(),
                           updatedAt: DateTime.now(),
                         );
                         await DatabaseService.saveChapter(book.id, newChapter);
-
-                        if (context.mounted) {
-                          if (book.documentType == DocumentType.scp) {
-                            Navigator.pushReplacement(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) => SCPEditorScreen(
-                                  book: book,
-                                  chapter: newChapter,
-                                ),
-                              ),
-                            );
-                          } else {
-                            Navigator.pushReplacement(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) => EditorScreen(
-                                  book: book,
-                                  chapter: newChapter,
-                                ),
-                              ),
-                            );
-                          }
-                        }
+                        if (context.mounted)
+                          _navigateToEditor(context, newChapter);
                       },
                       icon: const Icon(Icons.add),
-                      label: const Text('New Chapter'),
+                      label: Text(
+                        book.documentType == DocumentType.dnd_adventure
+                            ? 'New Scene'
+                            : 'New Chapter',
+                      ),
                     ),
                   );
                 }
@@ -118,56 +120,50 @@ class ChaptersSidebar extends StatelessWidget {
                 final chapter = sortedChapters[index];
                 final isSelected = chapter.id == currentChapterId;
 
-                return ListTile(
-                  title: Text(
-                    chapter.title.isEmpty ? 'Untitled Chapter' : chapter.title,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      color: isSelected
-                          ? Theme.of(context).colorScheme.primary
-                          : null,
-                      fontWeight: isSelected ? FontWeight.bold : null,
+                return ReorderableDragStartListener(
+                  key: ValueKey(chapter.id),
+                  index: index,
+                  child: ListTile(
+                    title: Text(
+                      chapter.title.isEmpty ? 'Untitled' : chapter.title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: isSelected
+                            ? Theme.of(context).colorScheme.primary
+                            : null,
+                        fontWeight: isSelected ? FontWeight.bold : null,
+                      ),
                     ),
-                  ),
-                  leading: Text(
-                    '${index + 1}',
-                    style: TextStyle(
-                      color: isSelected
-                          ? Theme.of(context).colorScheme.primary
-                          : Colors.grey,
+                    leading: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.drag_indicator,
+                          size: 16,
+                          color: Colors.grey.withOpacity(0.5),
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          '${index + 1}',
+                          style: TextStyle(
+                            color: isSelected
+                                ? Theme.of(context).colorScheme.primary
+                                : Colors.grey,
+                          ),
+                        ),
+                      ],
                     ),
-                  ),
-                  selected: isSelected,
-                  selectedTileColor: Theme.of(
-                    context,
-                  ).colorScheme.primary.withValues(alpha: 0.1),
-                  onTap: () {
-                    if (!isSelected) {
-                      // Navigate to chapter
-                      // Check for unsaved changes handled by EditorScreen's PopScope?
-                      // Navigator.pushReplacement won't trigger PopScope of the current route?
-                      // We should ideally confirm save before switching.
-                      // For now, direct navigation.
-                      if (book.documentType == DocumentType.scp) {
-                        Navigator.pushReplacement(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) =>
-                                SCPEditorScreen(book: book, chapter: chapter),
-                          ),
-                        );
-                      } else {
-                        Navigator.pushReplacement(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) =>
-                                EditorScreen(book: book, chapter: chapter),
-                          ),
-                        );
+                    selected: isSelected,
+                    selectedTileColor: Theme.of(
+                      context,
+                    ).colorScheme.primary.withValues(alpha: 0.1),
+                    onTap: () {
+                      if (!isSelected) {
+                        _navigateToEditor(context, chapter);
                       }
-                    }
-                  },
+                    },
+                  ),
                 );
               },
             ),
@@ -175,5 +171,31 @@ class ChaptersSidebar extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  void _navigateToEditor(BuildContext context, Chapter chapter) {
+    if (book.documentType == DocumentType.scp) {
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(
+          builder: (context) => SCPEditorScreen(book: book, chapter: chapter),
+        ),
+      );
+    } else if (book.documentType == DocumentType.dnd_adventure) {
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(
+          builder: (context) =>
+              AdventureEditorScreen(book: book, chapter: chapter),
+        ),
+      );
+    } else {
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(
+          builder: (context) => EditorScreen(book: book, chapter: chapter),
+        ),
+      );
+    }
   }
 }

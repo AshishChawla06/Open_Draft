@@ -5,6 +5,7 @@ import '../services/theme_service.dart';
 import '../services/image_service.dart';
 import '../widgets/glass_container.dart';
 import '../widgets/glass_background.dart';
+import '../services/backup_service.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -141,6 +142,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
             _buildSection('Export', [
               _buildDefaultExportFormatTile(),
               _buildDefaultAuthorNameTile(),
+            ]),
+            const SizedBox(height: 24),
+            _buildSection('Data Management', [
+              _buildBackupTile(),
+              _buildRestoreTile(),
             ]),
           ],
         ),
@@ -565,6 +571,87 @@ class _SettingsScreenState extends State<SettingsScreen> {
         if (newName != null) {
           await SettingsService.setDefaultAuthorName(newName);
           setState(() => _authorName = newName);
+        }
+      },
+    );
+  }
+
+  Widget _buildBackupTile() {
+    return ListTile(
+      leading: const Icon(Icons.cloud_download),
+      title: const Text('Backup Library'),
+      subtitle: const Text('Save a copy of all your books and settings'),
+      trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(32)),
+      onTap: () async {
+        setState(() => _isLoading = true);
+        try {
+          await BackupService.createBackup();
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Backup created successfully')),
+            );
+          }
+        } catch (e) {
+          if (mounted) {
+            ScaffoldMessenger.of(
+              context,
+            ).showSnackBar(SnackBar(content: Text('Backup failed: $e')));
+          }
+        } finally {
+          if (mounted) setState(() => _isLoading = false);
+        }
+      },
+    );
+  }
+
+  Widget _buildRestoreTile() {
+    return ListTile(
+      leading: const Icon(Icons.restore),
+      title: const Text('Restore from Backup'),
+      subtitle: const Text('Import library from a backup file'),
+      trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(32)),
+      onTap: () async {
+        final confirm = await showDialog<bool>(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('Restore Backup'),
+            content: const Text(
+              'This will replace your current library with the backup data. Are you sure?',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text('Cancel'),
+              ),
+              TextButton(
+                onPressed: () => Navigator.pop(context, true),
+                child: const Text('Restore'),
+              ),
+            ],
+          ),
+        );
+
+        if (confirm == true) {
+          setState(() => _isLoading = true);
+          try {
+            await BackupService.restoreBackup();
+            await _loadSettings(); // Reload settings
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Library restored successfully')),
+              );
+            }
+          } catch (e) {
+            if (mounted) {
+              ScaffoldMessenger.of(
+                context,
+              ).showSnackBar(SnackBar(content: Text('Restore failed: $e')));
+            }
+          } finally {
+            if (mounted) setState(() => _isLoading = false);
+          }
         }
       },
     );

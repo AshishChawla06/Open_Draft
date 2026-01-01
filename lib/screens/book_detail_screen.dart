@@ -17,6 +17,7 @@ import 'world_building_screen.dart';
 import 'export_screen.dart';
 import '../services/image_service.dart';
 import '../scp/screens/scp_editor_screen.dart';
+import '../dnd/screens/adventure_editor_screen.dart';
 
 class BookDetailScreen extends StatefulWidget {
   final Book book;
@@ -660,6 +661,11 @@ class _BookDetailScreenState extends State<BookDetailScreen> {
       MaterialPageRoute(
         builder: (context) => _currentBook.documentType == DocumentType.scp
             ? SCPEditorScreen(book: _currentBook, chapter: reloadedChapter)
+            : _currentBook.documentType == DocumentType.dnd_adventure
+            ? AdventureEditorScreen(
+                book: _currentBook,
+                chapter: reloadedChapter,
+              )
             : EditorScreen(book: _currentBook, chapter: reloadedChapter),
       ),
     );

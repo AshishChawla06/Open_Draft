@@ -104,6 +104,8 @@ class _NewBookScreenState extends State<NewBookScreen> {
             id: const Uuid().v4(),
             title: _selectedType == DocumentType.scp
                 ? 'Special Containment Procedures'
+                : _selectedType == DocumentType.dnd_adventure
+                ? 'Scene 1'
                 : 'Chapter 1',
             content: '',
             order: 1,
