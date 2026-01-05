@@ -9,7 +9,6 @@ class DnDService {
 
   // Simple in-memory cache to avoid rate limiting and speed up searches
   static final List<Monster> _monsterCache = [];
-  static bool _cacheInitialized = false;
 
   /// Searches for monsters by name.
   /// If [query] is empty, returns cache or fetches popular/low CR monsters.

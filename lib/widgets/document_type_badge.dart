@@ -59,7 +59,7 @@ class DocumentTypeBadge extends StatelessWidget {
           icon: Icons.book_rounded,
           label: 'NOVEL',
         );
-      case DocumentType.dnd_adventure:
+      case DocumentType.dndAdventure:
         return _BadgeColors(
           backgroundColor: const Color(0xFF3E2723), // Dark Brown
           borderColor: const Color(0xFFD7CCC8), // Parchment

@@ -1,7 +1,7 @@
 enum DocumentType {
   novel,
   scp,
-  dnd_adventure;
+  dndAdventure;
 
   String get displayName {
     switch (this) {
@@ -9,7 +9,7 @@ enum DocumentType {
         return 'Novel';
       case DocumentType.scp:
         return 'SCP Article';
-      case DocumentType.dnd_adventure:
+      case DocumentType.dndAdventure:
         return 'DnD Adventure';
     }
   }

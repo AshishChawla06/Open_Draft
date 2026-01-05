@@ -47,10 +47,10 @@ class ExportService {
     }
 
     // Save File
-    await _saveFile(book.title, extension, Uint8List.fromList(dataBytes));
+    await saveFile(book.title, extension, Uint8List.fromList(dataBytes));
   }
 
-  static Future<void> _saveFile(
+  static Future<void> saveFile(
     String title,
     String extension,
     Uint8List bytes,
@@ -74,15 +74,27 @@ class ExportService {
         return;
       }
 
-      // Known issue: saveFile is not implemented on Windows/Web for some file_picker versions
-      // So we force directory picker on Windows/Linux to avoid UnimplementedError
+      // Known issue: bytes parameter not supported on macOS
+      // So we get the path and write manually for all desktop platforms
       if (Platform.isWindows || Platform.isLinux) {
         final String? selectedDirectory = await FilePicker.platform
             .getDirectoryPath(dialogTitle: 'Select Destination Folder');
         if (selectedDirectory != null) {
           outputFile = '$selectedDirectory${Platform.pathSeparator}$fileName';
         }
+      } else if (Platform.isMacOS) {
+        // macOS: Don't pass bytes, get path only
+        try {
+          outputFile = await FilePicker.platform.saveFile(
+            dialogTitle: 'Export $title',
+            fileName: fileName,
+            type: FileType.any,
+          );
+        } catch (e) {
+          rethrow;
+        }
       } else {
+        // Other platforms (if any)
         try {
           outputFile = await FilePicker.platform.saveFile(
             dialogTitle: 'Export $title',
@@ -96,7 +108,7 @@ class ExportService {
       }
 
       if (outputFile != null) {
-        // Desktop: saveFile returns path, we must write
+        // Desktop: Write file manually
         if (!kIsWeb) {
           final file = File(outputFile);
           await file.writeAsBytes(bytes);

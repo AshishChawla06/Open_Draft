@@ -46,7 +46,7 @@ class ChaptersSidebar extends StatelessWidget {
             child: Row(
               children: [
                 Text(
-                  book.documentType == DocumentType.dnd_adventure
+                  book.documentType == DocumentType.dndAdventure
                       ? 'Acts & Scenes'
                       : 'Chapters',
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
@@ -93,7 +93,7 @@ class ChaptersSidebar extends StatelessWidget {
                           id: const Uuid().v4(),
                           title: book.documentType == DocumentType.scp
                               ? 'New SCP Section'
-                              : book.documentType == DocumentType.dnd_adventure
+                              : book.documentType == DocumentType.dndAdventure
                               ? 'New Scene'
                               : 'New Chapter',
                           content: jsonEncode([
@@ -109,7 +109,7 @@ class ChaptersSidebar extends StatelessWidget {
                       },
                       icon: const Icon(Icons.add),
                       label: Text(
-                        book.documentType == DocumentType.dnd_adventure
+                        book.documentType == DocumentType.dndAdventure
                             ? 'New Scene'
                             : 'New Chapter',
                       ),
@@ -141,7 +141,7 @@ class ChaptersSidebar extends StatelessWidget {
                         Icon(
                           Icons.drag_indicator,
                           size: 16,
-                          color: Colors.grey.withOpacity(0.5),
+                          color: Colors.grey.withValues(alpha: 0.5),
                         ),
                         const SizedBox(width: 8),
                         Text(
@@ -181,7 +181,7 @@ class ChaptersSidebar extends StatelessWidget {
           builder: (context) => SCPEditorScreen(book: book, chapter: chapter),
         ),
       );
-    } else if (book.documentType == DocumentType.dnd_adventure) {
+    } else if (book.documentType == DocumentType.dndAdventure) {
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(

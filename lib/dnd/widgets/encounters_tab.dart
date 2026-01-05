@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import '../../models/chapter.dart';
 import '../models/encounter.dart';
+import '../screens/encounter_editor_screen.dart';
 import 'encounter_card.dart';
+import '../../services/database_service.dart';
 
 class EncountersTab extends StatefulWidget {
   final Chapter chapter;
@@ -40,6 +42,7 @@ class _EncountersTabState extends State<EncountersTab> {
   // Let's implement independent storage logic here or minimal state for the UI demo.
 
   List<Encounter> _encounters = [];
+  bool _isLoading = false;
 
   @override
   void initState() {
@@ -47,17 +50,27 @@ class _EncountersTabState extends State<EncountersTab> {
     _loadEncounters();
   }
 
-  void _loadEncounters() {
-    // TODO: Load from persistent storage
-    // For now, start empty or mock
+  Future<void> _loadEncounters() async {
+    setState(() => _isLoading = true);
+    try {
+      final encounters = await DatabaseService.getDndEncounters(
+        widget.chapter.id,
+      );
+      setState(() {
+        _encounters = encounters;
+        _isLoading = false;
+      });
+    } catch (e) {
+      setState(() => _isLoading = false);
+    }
   }
 
-  void _createNewEncounter() {
+  void _createNewEncounter() async {
     final newEncounter = Encounter.empty(widget.chapter.id);
+    await DatabaseService.saveDndEncounter(newEncounter);
     setState(() {
       _encounters.add(newEncounter);
     });
-    // Trigger save
     widget.onEncounterUpdate(newEncounter);
   }
 
@@ -94,7 +107,9 @@ class _EncountersTabState extends State<EncountersTab> {
 
         // List
         Expanded(
-          child: _encounters.isEmpty
+          child: _isLoading
+              ? const Center(child: CircularProgressIndicator())
+              : _encounters.isEmpty
               ? Center(
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
@@ -136,10 +151,6 @@ class _EncountersTabState extends State<EncountersTab> {
                       padding: const EdgeInsets.only(bottom: 12),
                       child: EncounterCard(
                         encounter: encounter,
-// Navigate to editor
-import '../screens/encounter_editor_screen.dart';
-
-// ... inside build ...
                         onTap: () {
                           Navigator.push(
                             context,

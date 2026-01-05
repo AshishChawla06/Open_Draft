@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
-import '../../models/monster.dart';
+import '../models/monster.dart';
 import '../models/encounter.dart';
 import '../../widgets/glass_container.dart';
 import '../../widgets/glass_background.dart';
-import 'add_monster_dialog.dart';
+import '../widgets/add_monster_dialog.dart';
 
 class EncounterEditorScreen extends StatefulWidget {
   final Encounter encounter;

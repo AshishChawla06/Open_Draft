@@ -1,8 +1,8 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
-import '../../models/monster.dart';
-import '../../services/dnd_service.dart';
-import '../../../widgets/glass_container.dart';
+import '../models/monster.dart';
+import '../services/dnd_service.dart';
+import '../../widgets/glass_container.dart';
 
 class AddMonsterDialog extends StatefulWidget {
   const AddMonsterDialog({super.key});

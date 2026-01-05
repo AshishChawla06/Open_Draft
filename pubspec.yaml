@@ -80,6 +80,7 @@ dependencies:
   flutter_svg: ^2.2.3
   diff_match_patch: ^0.4.1
   intl: ^0.20.2
+  flutter_widget_from_html: ^0.15.2
 dev_dependencies:
   flutter_test:
     sdk: flutter

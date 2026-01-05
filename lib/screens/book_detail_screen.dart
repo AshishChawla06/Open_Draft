@@ -661,7 +661,7 @@ class _BookDetailScreenState extends State<BookDetailScreen> {
       MaterialPageRoute(
         builder: (context) => _currentBook.documentType == DocumentType.scp
             ? SCPEditorScreen(book: _currentBook, chapter: reloadedChapter)
-            : _currentBook.documentType == DocumentType.dnd_adventure
+            : _currentBook.documentType == DocumentType.dndAdventure
             ? AdventureEditorScreen(
                 book: _currentBook,
                 chapter: reloadedChapter,

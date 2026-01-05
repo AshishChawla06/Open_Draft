@@ -66,14 +66,14 @@ class _VisualDiffViewerState extends State<VisualDiffViewer> {
                       if (widget.oldLabel != null)
                         _buildLegendItem(
                           widget.oldLabel!,
-                          Colors.red.withOpacity(0.2),
+                          Colors.red.withValues(alpha: 0.2),
                           Colors.red[800]!,
                         ),
                       const SizedBox(width: 16),
                       if (widget.newLabel != null)
                         _buildLegendItem(
                           widget.newLabel!,
-                          Colors.green.withOpacity(0.2),
+                          Colors.green.withValues(alpha: 0.2),
                           Colors.green[800]!,
                         ),
                     ],
@@ -105,7 +105,7 @@ class _VisualDiffViewerState extends State<VisualDiffViewer> {
       decoration: BoxDecoration(
         color: bg,
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: text.withOpacity(0.3)),
+        border: Border.all(color: text.withValues(alpha: 0.3)),
       ),
       child: Text(
         label,

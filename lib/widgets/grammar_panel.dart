@@ -146,7 +146,7 @@ class _GrammarPanelState extends State<GrammarPanel> {
                       size: 48,
                       color: Theme.of(
                         context,
-                      ).colorScheme.onSurface.withOpacity(0.3),
+                      ).colorScheme.onSurface.withValues(alpha: 0.3),
                     ),
                     const SizedBox(height: 8),
                     Text(
@@ -155,7 +155,7 @@ class _GrammarPanelState extends State<GrammarPanel> {
                       style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                         color: Theme.of(
                           context,
-                        ).colorScheme.onSurface.withOpacity(0.5),
+                        ).colorScheme.onSurface.withValues(alpha: 0.5),
                       ),
                     ),
                   ],
@@ -225,7 +225,7 @@ class _GrammarPanelState extends State<GrammarPanel> {
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
                     color: Theme.of(
                       context,
-                    ).colorScheme.onSurface.withOpacity(0.7),
+                    ).colorScheme.onSurface.withValues(alpha: 0.7),
                   ),
                 ),
               ],

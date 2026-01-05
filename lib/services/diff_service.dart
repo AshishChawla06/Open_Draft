@@ -49,11 +49,11 @@ class DiffService {
 
       switch (diff.operation) {
         case DIFF_INSERT:
-          backgroundColor = Colors.green.withOpacity(0.2);
+          backgroundColor = Colors.green.withValues(alpha: 0.2);
           textColor = Colors.green[800];
           break;
         case DIFF_DELETE:
-          backgroundColor = Colors.red.withOpacity(0.2);
+          backgroundColor = Colors.red.withValues(alpha: 0.2);
           textColor = Colors.red[800];
           decoration = TextDecoration.lineThrough;
           break;

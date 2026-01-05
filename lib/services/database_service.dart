@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:logger/logger.dart';
 import '../models/book.dart';
 import '../models/chapter.dart';
 import '../models/document_type.dart';
@@ -14,9 +15,15 @@ import '../models/snapshot.dart';
 import '../models/character.dart';
 import '../models/bookmark.dart';
 import '../models/template.dart';
+import '../dnd/models/npc.dart' as dnd;
+import '../dnd/models/location.dart' as dnd;
+import '../dnd/models/magic_item.dart' as dnd;
+import '../dnd/models/encounter.dart' as dnd;
+import '../dnd/models/adventure_note.dart' as dnd;
 //import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 class DatabaseService {
+  static final Logger _logger = Logger();
   static Database? _database;
   static const String _dbName = 'novel_writer.db';
   static const int _dbVersion = 9;
@@ -62,6 +69,11 @@ class DatabaseService {
   static const String _webCharactersKey = 'characters_data';
   static const String _webLocationsKey = 'locations_data';
   static const String _webTemplatesKey = 'templates_data';
+  static const String _webDndNpcsKey = 'dnd_npcs_data';
+  static const String _webDndLocationsKey = 'dnd_locations_data';
+  static const String _webDndItemsKey = 'dnd_items_data';
+  static const String _webDndEncountersKey = 'dnd_encounters_data';
+  static const String _webDndNotesKey = 'dnd_notes_data';
 
   /// Get database instance (mobile only)
   static Future<Database> get database async {
@@ -210,6 +222,97 @@ class DatabaseService {
         type TEXT NOT NULL
       )
     ''');
+
+    await db.execute('''
+      CREATE TABLE dnd_npcs (
+        id TEXT PRIMARY KEY,
+        adventureId TEXT NOT NULL,
+        name TEXT NOT NULL,
+        race TEXT,
+        characterClass TEXT,
+        alignment TEXT,
+        role TEXT,
+        traits TEXT,
+        ideals TEXT,
+        bonds TEXT,
+        flaws TEXT,
+        backstory TEXT,
+        appearance TEXT,
+        voiceMannerisms TEXT,
+        includeStatblock INTEGER,
+        armorClass INTEGER,
+        hitPoints INTEGER,
+        abilityScores TEXT,
+        redactions TEXT,
+        createdAt TEXT NOT NULL,
+        updatedAt TEXT NOT NULL,
+        FOREIGN KEY (adventureId) REFERENCES books (id) ON DELETE CASCADE
+      )
+    ''');
+
+    await db.execute('''
+      CREATE TABLE dnd_locations (
+        id TEXT PRIMARY KEY,
+        adventureId TEXT NOT NULL,
+        name TEXT NOT NULL,
+        region TEXT,
+        environment TEXT,
+        description TEXT,
+        rooms TEXT,
+        mapImageUrl TEXT,
+        mapNotes TEXT,
+        redactions TEXT,
+        createdAt TEXT NOT NULL,
+        updatedAt TEXT NOT NULL,
+        FOREIGN KEY (adventureId) REFERENCES books (id) ON DELETE CASCADE
+      )
+    ''');
+
+    await db.execute('''
+      CREATE TABLE dnd_items (
+        id TEXT PRIMARY KEY,
+        adventureId TEXT NOT NULL,
+        name TEXT NOT NULL,
+        rarity TEXT,
+        type TEXT,
+        requiresAttunement INTEGER,
+        lore TEXT,
+        effects TEXT,
+        hiddenPowers TEXT,
+        mechanics TEXT,
+        redactions TEXT,
+        createdAt TEXT NOT NULL,
+        updatedAt TEXT NOT NULL,
+        FOREIGN KEY (adventureId) REFERENCES books (id) ON DELETE CASCADE
+      )
+    ''');
+
+    await db.execute('''
+      CREATE TABLE dnd_encounters (
+        id TEXT PRIMARY KEY,
+        chapterId TEXT NOT NULL,
+        title TEXT NOT NULL,
+        environment TEXT,
+        notes TEXT,
+        difficultyRating TEXT,
+        monsters TEXT,
+        updatedAt TEXT NOT NULL,
+        FOREIGN KEY (chapterId) REFERENCES chapters (id) ON DELETE CASCADE
+      )
+    ''');
+
+    await db.execute('''
+      CREATE TABLE dnd_notes (
+        id TEXT PRIMARY KEY,
+        adventureId TEXT NOT NULL,
+        title TEXT NOT NULL,
+        content TEXT,
+        redactions TEXT,
+        createdAt TEXT NOT NULL,
+        updatedAt TEXT NOT NULL,
+        FOREIGN KEY (adventureId) REFERENCES books (id) ON DELETE CASCADE
+      )
+    ''');
   }
 
   /// Upgrade database (mobile only)
@@ -352,7 +455,7 @@ class DatabaseService {
 
       await prefs.setString(_webLogsKey, jsonEncode(logsList));
     } catch (e) {
-      print('Error saving log to web: $e');
+      _logger.e('Error saving log to web: $e');
     }
   }
 
@@ -389,7 +492,7 @@ class DatabaseService {
           .toList()
         ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
     } catch (e) {
-      print('Error getting logs for chapter web: $e');
+      _logger.e('Error getting logs for chapter web: $e');
       return [];
     }
   }
@@ -435,7 +538,7 @@ class DatabaseService {
       logsList.removeWhere((l) => l['id'] == logId);
       await prefs.setString(_webLogsKey, jsonEncode(logsList));
     } catch (e) {
-      print('Error deleting log web: $e');
+      _logger.e('Error deleting log web: $e');
     }
   }
 
@@ -478,14 +581,14 @@ class DatabaseService {
       });
 
       await prefs.setString(_webBooksKey, jsonEncode(booksList));
-      print('Saved book to web storage: ${book.id}');
+      _logger.d('Saved book to web storage: ${book.id}');
 
       // Save chapters
       for (final chapter in book.chapters) {
         await saveChapter(book.id, chapter);
       }
     } catch (e) {
-      print('Error saving book to web: $e');
+      _logger.e('Error saving book to web: $e');
       rethrow;
     }
   }
@@ -1534,6 +1637,293 @@ class DatabaseService {
     } else {
       final db = await database;
       await db.delete('templates', where: 'id = ?', whereArgs: [id]);
+    }
+  }
+
+  // --- D&D NPC Methods ---
+
+  static Future<void> saveDndNpc(dnd.Npc npc) async {
+    if (kIsWeb) {
+      final prefs = await SharedPreferences.getInstance();
+      final data = prefs.getString(_webDndNpcsKey) ?? '[]';
+      final List<dynamic> list = jsonDecode(data);
+      final index = list.indexWhere((item) => item['id'] == npc.id);
+      if (index >= 0) {
+        list[index] = npc.toJson();
+      } else {
+        list.add(npc.toJson());
+      }
+      await prefs.setString(_webDndNpcsKey, jsonEncode(list));
+    } else {
+      final db = await database;
+      await db.insert(
+        'dnd_npcs',
+        npc.toJson(),
+        conflictAlgorithm: ConflictAlgorithm.replace,
+      );
+    }
+  }
+
+  static Future<List<dnd.Npc>> getDndNpcs(String adventureId) async {
+    if (kIsWeb) {
+      final prefs = await SharedPreferences.getInstance();
+      final data = prefs.getString(_webDndNpcsKey) ?? '[]';
+      final List<dynamic> list = jsonDecode(data);
+      return list
+          .map((item) => dnd.Npc.fromJson(item))
+          .where((npc) => npc.adventureId == adventureId)
+          .toList();
+    } else {
+      final db = await database;
+      final List<Map<String, dynamic>> maps = await db.query(
+        'dnd_npcs',
+        where: 'adventureId = ?',
+        whereArgs: [adventureId],
+      );
+      return maps.map((map) => dnd.Npc.fromJson(map)).toList();
+    }
+  }
+
+  static Future<void> deleteDndNpc(String id) async {
+    if (kIsWeb) {
+      final prefs = await SharedPreferences.getInstance();
+      final data = prefs.getString(_webDndNpcsKey) ?? '[]';
+      final List<dynamic> list = jsonDecode(data);
+      list.removeWhere((item) => item['id'] == id);
+      await prefs.setString(_webDndNpcsKey, jsonEncode(list));
+    } else {
+      final db = await database;
+      await db.delete('dnd_npcs', where: 'id = ?', whereArgs: [id]);
+    }
+  }
+
+  // --- D&D Location Methods ---
+
+  static Future<void> saveDndLocation(dnd.Location location) async {
+    if (kIsWeb) {
+      final prefs = await SharedPreferences.getInstance();
+      final data = prefs.getString(_webDndLocationsKey) ?? '[]';
+      final List<dynamic> list = jsonDecode(data);
+      final index = list.indexWhere((item) => item['id'] == location.id);
+      if (index >= 0) {
+        list[index] = location.toJson();
+      } else {
+        list.add(location.toJson());
+      }
+      await prefs.setString(_webDndLocationsKey, jsonEncode(list));
+    } else {
+      final db = await database;
+      await db.insert(
+        'dnd_locations',
+        location.toJson(),
+        conflictAlgorithm: ConflictAlgorithm.replace,
+      );
+    }
+  }
+
+  static Future<List<dnd.Location>> getDndLocations(String adventureId) async {
+    if (kIsWeb) {
+      final prefs = await SharedPreferences.getInstance();
+      final data = prefs.getString(_webDndLocationsKey) ?? '[]';
+      final List<dynamic> list = jsonDecode(data);
+      return list
+          .map((item) => dnd.Location.fromJson(item))
+          .where((loc) => loc.adventureId == adventureId)
+          .toList();
+    } else {
+      final db = await database;
+      final List<Map<String, dynamic>> maps = await db.query(
+        'dnd_locations',
+        where: 'adventureId = ?',
+        whereArgs: [adventureId],
+      );
+      return maps.map((map) => dnd.Location.fromJson(map)).toList();
+    }
+  }
+
+  static Future<void> deleteDndLocation(String id) async {
+    if (kIsWeb) {
+      final prefs = await SharedPreferences.getInstance();
+      final data = prefs.getString(_webDndLocationsKey) ?? '[]';
+      final List<dynamic> list = jsonDecode(data);
+      list.removeWhere((item) => item['id'] == id);
+      await prefs.setString(_webDndLocationsKey, jsonEncode(list));
+    } else {
+      final db = await database;
+      await db.delete('dnd_locations', where: 'id = ?', whereArgs: [id]);
+    }
+  }
+
+  // --- D&D Magic Item Methods ---
+
+  static Future<void> saveDndMagicItem(dnd.MagicItem item) async {
+    if (kIsWeb) {
+      final prefs = await SharedPreferences.getInstance();
+      final data = prefs.getString(_webDndItemsKey) ?? '[]';
+      final List<dynamic> list = jsonDecode(data);
+      final index = list.indexWhere((i) => i['id'] == item.id);
+      if (index >= 0) {
+        list[index] = item.toJson();
+      } else {
+        list.add(item.toJson());
+      }
+      await prefs.setString(_webDndItemsKey, jsonEncode(list));
+    } else {
+      final db = await database;
+      await db.insert(
+        'dnd_items',
+        item.toJson(),
+        conflictAlgorithm: ConflictAlgorithm.replace,
+      );
+    }
+  }
+
+  static Future<List<dnd.MagicItem>> getDndMagicItems(
+    String adventureId,
+  ) async {
+    if (kIsWeb) {
+      final prefs = await SharedPreferences.getInstance();
+      final data = prefs.getString(_webDndItemsKey) ?? '[]';
+      final List<dynamic> list = jsonDecode(data);
+      return list
+          .map((item) => dnd.MagicItem.fromJson(item))
+          .where((i) => i.adventureId == adventureId)
+          .toList();
+    } else {
+      final db = await database;
+      final List<Map<String, dynamic>> maps = await db.query(
+        'dnd_items',
+        where: 'adventureId = ?',
+        whereArgs: [adventureId],
+      );
+      return maps.map((map) => dnd.MagicItem.fromJson(map)).toList();
+    }
+  }
+
+  static Future<void> deleteDndMagicItem(String id) async {
+    if (kIsWeb) {
+      final prefs = await SharedPreferences.getInstance();
+      final data = prefs.getString(_webDndItemsKey) ?? '[]';
+      final List<dynamic> list = jsonDecode(data);
+      list.removeWhere((item) => item['id'] == id);
+      await prefs.setString(_webDndItemsKey, jsonEncode(list));
+    } else {
+      final db = await database;
+      await db.delete('dnd_items', where: 'id = ?', whereArgs: [id]);
+    }
+  }
+
+  // --- D&D Encounter Methods ---
+
+  static Future<void> saveDndEncounter(dnd.Encounter encounter) async {
+    if (kIsWeb) {
+      final prefs = await SharedPreferences.getInstance();
+      final data = prefs.getString(_webDndEncountersKey) ?? '[]';
+      final List<dynamic> list = jsonDecode(data);
+      final index = list.indexWhere((e) => e['id'] == encounter.id);
+      if (index >= 0) {
+        list[index] = encounter.toJson();
+      } else {
+        list.add(encounter.toJson());
+      }
+      await prefs.setString(_webDndEncountersKey, jsonEncode(list));
+    } else {
+      final db = await database;
+      await db.insert(
+        'dnd_encounters',
+        encounter.toJson(),
+        conflictAlgorithm: ConflictAlgorithm.replace,
+      );
+    }
+  }
+
+  static Future<List<dnd.Encounter>> getDndEncounters(String chapterId) async {
+    if (kIsWeb) {
+      final prefs = await SharedPreferences.getInstance();
+      final data = prefs.getString(_webDndEncountersKey) ?? '[]';
+      final List<dynamic> list = jsonDecode(data);
+      return list
+          .map((item) => dnd.Encounter.fromJson(item))
+          .where((e) => e.chapterId == chapterId)
+          .toList();
+    } else {
+      final db = await database;
+      final List<Map<String, dynamic>> maps = await db.query(
+        'dnd_encounters',
+        where: 'chapterId = ?',
+        whereArgs: [chapterId],
+      );
+      return maps.map((map) => dnd.Encounter.fromJson(map)).toList();
+    }
+  }
+
+  static Future<void> deleteDndEncounter(String id) async {
+    if (kIsWeb) {
+      final prefs = await SharedPreferences.getInstance();
+      final data = prefs.getString(_webDndEncountersKey) ?? '[]';
+      final List<dynamic> list = jsonDecode(data);
+      list.removeWhere((item) => item['id'] == id);
+      await prefs.setString(_webDndEncountersKey, jsonEncode(list));
+    } else {
+      final db = await database;
+      await db.delete('dnd_encounters', where: 'id = ?', whereArgs: [id]);
+    }
+  }
+
+  // --- D&D Notes ---
+
+  static Future<void> saveDndNote(dnd.AdventureNote note) async {
+    if (kIsWeb) {
+      final prefs = await SharedPreferences.getInstance();
+      final data = prefs.getString(_webDndNotesKey) ?? '[]';
+      final List<dynamic> list = jsonDecode(data);
+      final index = list.indexWhere((item) => item['id'] == note.id);
+      if (index >= 0) {
+        list[index] = note.toJson();
+      } else {
+        list.add(note.toJson());
+      }
+      await prefs.setString(_webDndNotesKey, jsonEncode(list));
+    } else {
+      final db = await database;
+      await db.insert(
+        'dnd_notes',
+        note.toJson(),
+        conflictAlgorithm: ConflictAlgorithm.replace,
+      );
+    }
+  }
+
+  static Future<List<dnd.AdventureNote>> getDndNotes(String adventureId) async {
+    if (kIsWeb) {
+      final prefs = await SharedPreferences.getInstance();
+      final data = prefs.getString(_webDndNotesKey) ?? '[]';
+      final List<dynamic> list = jsonDecode(data);
+      return list
+          .map((item) => dnd.AdventureNote.fromJson(item))
+          .where((note) => note.adventureId == adventureId)
+          .toList();
+    } else {
+      final db = await database;
+      final List<Map<String, dynamic>> maps = await db.query(
+        'dnd_notes',
+        where: 'adventureId = ?',
+        whereArgs: [adventureId],
+      );
+      return maps.map((map) => dnd.AdventureNote.fromJson(map)).toList();
+    }
+  }
+
+  static Future<void> deleteDndNote(String id) async {
+    if (kIsWeb) {
+      final prefs = await SharedPreferences.getInstance();
+      final data = prefs.getString(_webDndNotesKey) ?? '[]';
+      final List<dynamic> list = jsonDecode(data);
+      list.removeWhere((item) => item['id'] == id);
+      await prefs.setString(_webDndNotesKey, jsonEncode(list));
+    } else {
+      final db = await database;
+      await db.delete('dnd_notes', where: 'id = ?', whereArgs: [id]);
     }
   }
 

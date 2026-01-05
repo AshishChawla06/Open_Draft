@@ -58,24 +58,38 @@ class BackupService {
         ], subject: 'OpenDraft Backup');
       } else {
         String? outputFile;
-        try {
-          outputFile = await FilePicker.platform.saveFile(
-            dialogTitle: 'Save Backup',
-            fileName: fileName,
-            bytes: Uint8List.fromList(zipBytes),
-            type: FileType.custom,
-            allowedExtensions: ['zip'],
-          );
-        } catch (e) {
-          // Fallback for Windows if saveFile is not implemented
-          if (!kIsWeb && (Platform.isWindows || Platform.isLinux)) {
-            final String? selectedDirectory = await FilePicker.platform
-                .getDirectoryPath(dialogTitle: 'Select Destination Folder');
-            if (selectedDirectory != null) {
-              outputFile =
-                  '$selectedDirectory${Platform.pathSeparator}$fileName';
-            }
-          } else {
+
+        // Handle platform-specific file picker behavior
+        if (!kIsWeb && (Platform.isWindows || Platform.isLinux)) {
+          // Windows/Linux: Use directory picker
+          final String? selectedDirectory = await FilePicker.platform
+              .getDirectoryPath(dialogTitle: 'Select Backup Destination');
+          if (selectedDirectory != null) {
+            outputFile = '$selectedDirectory${Platform.pathSeparator}$fileName';
+          }
+        } else if (!kIsWeb && Platform.isMacOS) {
+          // macOS: Don't pass bytes parameter
+          try {
+            outputFile = await FilePicker.platform.saveFile(
+              dialogTitle: 'Save Backup',
+              fileName: fileName,
+              type: FileType.custom,
+              allowedExtensions: ['zip'],
+            );
+          } catch (e) {
+            rethrow;
+          }
+        } else {
+          // Other platforms or web
+          try {
+            outputFile = await FilePicker.platform.saveFile(
+              dialogTitle: 'Save Backup',
+              fileName: fileName,
+              bytes: Uint8List.fromList(zipBytes),
+              type: FileType.custom,
+              allowedExtensions: ['zip'],
+            );
+          } catch (e) {
             rethrow;
           }
         }

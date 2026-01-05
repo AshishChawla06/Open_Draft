@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_quill/flutter_quill.dart' as quill;
 import 'dart:convert';
 import 'dart:async';
+import 'dart:typed_data';
 import 'package:logger/logger.dart';
+
 import 'package:provider/provider.dart';
 
 import '../../models/book.dart';
@@ -14,6 +16,14 @@ import '../../widgets/glass_background.dart';
 import '../../widgets/integrated_action_bar.dart';
 import '../../widgets/chapters_sidebar.dart';
 import '../../widgets/logo_header.dart';
+import '../widgets/encounters_tab.dart';
+import '../widgets/npcs_tab.dart';
+import '../widgets/locations_tab.dart';
+import '../widgets/items_tab.dart';
+import '../widgets/notes_tab.dart';
+import '../services/dnd_export_service.dart';
+import 'dnd_export_preview_screen.dart';
+import '../../services/export_service.dart';
 
 class AdventureEditorScreen extends StatefulWidget {
   final Book book;
@@ -38,7 +48,7 @@ class _AdventureEditorScreenState extends State<AdventureEditorScreen> {
   bool _showMetadataPanel = true;
   bool _showNotes = false;
   bool _isDistractionFree = false;
-  bool _isToolbarCollapsed = false;
+  final bool _isToolbarCollapsed = false;
   late Chapter _chapter;
   Timer? _saveDebounce;
   late FocusNode _focusNode;
@@ -135,193 +145,258 @@ class _AdventureEditorScreenState extends State<AdventureEditorScreen> {
   @override
   Widget build(BuildContext context) {
     return GlassBackground(
-      child: DefaultTabController(
-        length: 3,
-        child: Scaffold(
-          backgroundColor: Colors.transparent,
-          extendBodyBehindAppBar: true,
-          appBar: _isDistractionFree ? null : _buildAppBar(),
-          body: Row(
-            children: [
-              // Left Sidebar: Chapters (Only visible in Write/Outline modes usually,
-              // but let's keep it contextual or controlled by the toggle)
-              if (_showChapters && !_isDistractionFree)
-                Padding(
-                  padding: const EdgeInsets.only(top: kToolbarHeight + 8),
-                  child: GlassContainer(
-                    width: 280,
-                    borderRadius: const BorderRadius.only(
-                      topRight: Radius.circular(24),
-                      bottomRight: Radius.circular(24),
-                    ),
-                    opacity: 0.1,
-                    child: ChaptersSidebar(
-                      book: widget.book,
-                      currentChapterId: _chapter.id,
-                      onClose: () => setState(() => _showChapters = false),
-                    ),
-                  ),
-                ),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final isMobile = constraints.maxWidth < 800;
 
-              // Main Content Area
-              Expanded(
-                child: Stack(
-                  children: [
-                    Column(
+          return DefaultTabController(
+            length:
+                7, // Write, Outline, Encounters, NPCs, Locations, Items, Notes
+            child: Scaffold(
+              backgroundColor: Colors.transparent,
+              extendBodyBehindAppBar: true,
+              appBar: _isDistractionFree ? null : _buildAppBar(),
+              drawer: isMobile
+                  ? Drawer(
+                      child: ChaptersSidebar(
+                        book: widget.book,
+                        currentChapterId: _chapter.id,
+                        onClose: () => Navigator.pop(context),
+                      ),
+                    )
+                  : null,
+              floatingActionButton: _buildFab(isMobile),
+              body: Row(
+                children: [
+                  // Left Sidebar: Chapters (Only visible in Write/Outline modes usually,
+                  // but let's keep it contextual or controlled by the toggle)
+                  if (_showChapters && !isMobile && !_isDistractionFree)
+                    Padding(
+                      padding: const EdgeInsets.only(top: kToolbarHeight + 8),
+                      child: GlassContainer(
+                        width: 280,
+                        borderRadius: const BorderRadius.only(
+                          topRight: Radius.circular(24),
+                          bottomRight: Radius.circular(24),
+                        ),
+                        opacity: 0.1,
+                        child: ChaptersSidebar(
+                          book: widget.book,
+                          currentChapterId: _chapter.id,
+                          onClose: () => setState(() => _showChapters = false),
+                        ),
+                      ),
+                    ),
+
+                  // Main Content Area
+                  Expanded(
+                    child: Stack(
                       children: [
-                        if (!_isDistractionFree)
-                          const SizedBox(height: kToolbarHeight + 16),
+                        Column(
+                          children: [
+                            if (!_isDistractionFree)
+                              const SizedBox(height: kToolbarHeight + 16),
 
-                        // Tab Bar (Custom Glass Design)
-                        if (!_isDistractionFree)
-                          Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 24),
-                            child: GlassContainer(
-                              height: 48,
-                              borderRadius: BorderRadius.circular(24),
-                              opacity: 0.1,
-                              child: TabBar(
-                                indicator: BoxDecoration(
-                                  borderRadius: BorderRadius.circular(24),
-                                  color: Theme.of(
-                                    context,
-                                  ).colorScheme.primary.withValues(alpha: 0.2),
-                                ),
-                                dividerColor: Colors.transparent,
-                                labelColor: Theme.of(
-                                  context,
-                                ).colorScheme.primary,
-                                unselectedLabelColor: Theme.of(
-                                  context,
-                                ).colorScheme.onSurface.withValues(alpha: 0.6),
-                                tabs: const [
-                                  Tab(text: 'Write'),
-                                  Tab(text: 'Outline'),
-                                  Tab(text: 'Encounters'),
-                                ],
-                              ),
-                            ),
-                          ),
-
-                        if (!_isDistractionFree) const SizedBox(height: 16),
-
-                        // Tab Views
-                        Expanded(
-                          child: TabBarView(
-                            physics:
-                                const NeverScrollableScrollPhysics(), // Prevent swipe
-                            children: [
-                              // 1. Write Tab
-                              Container(
-                                margin: _isDistractionFree
-                                    ? EdgeInsets.zero
-                                    : const EdgeInsets.fromLTRB(16, 0, 16, 16),
-                                child: GlassContainer(
-                                  borderRadius: _isDistractionFree
-                                      ? BorderRadius.zero
-                                      : BorderRadius.circular(24),
-                                  opacity: _isDistractionFree ? 0 : 0.05,
-                                  child: _buildEditor(), // Existing editor
-                                ),
-                              ),
-
-                              // 2. Outline Tab (Placeholder for now)
-                              Container(
-                                margin: const EdgeInsets.fromLTRB(
-                                  16,
-                                  0,
-                                  16,
-                                  16,
+                            // Tab Bar (Custom Glass Design)
+                            if (!_isDistractionFree)
+                              Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 24,
                                 ),
                                 child: GlassContainer(
+                                  height: 48,
                                   borderRadius: BorderRadius.circular(24),
-                                  opacity: 0.05,
-                                  child: const Center(
-                                    child: Text("Outline View (Coming Soon)"),
+                                  opacity: 0.1,
+                                  child: TabBar(
+                                    indicator: BoxDecoration(
+                                      borderRadius: BorderRadius.circular(24),
+                                      color: Theme.of(context)
+                                          .colorScheme
+                                          .primary
+                                          .withValues(alpha: 0.2),
+                                    ),
+                                    dividerColor: Colors.transparent,
+                                    labelColor: Theme.of(
+                                      context,
+                                    ).colorScheme.primary,
+                                    unselectedLabelColor: Theme.of(context)
+                                        .colorScheme
+                                        .onSurface
+                                        .withValues(alpha: 0.6),
+                                    tabs: const [
+                                      Tab(text: 'Write'),
+                                      Tab(text: 'Outline'),
+                                      Tab(text: 'Encounters'),
+                                      Tab(text: 'NPCs'),
+                                      Tab(text: 'Locations'),
+                                      Tab(text: 'Items'),
+                                      Tab(text: 'Notes'),
+                                    ],
                                   ),
                                 ),
                               ),
 
-                              // 3. Encounters Tab
-                              Container(
-                                margin: const EdgeInsets.fromLTRB(
-                                  16,
-                                  0,
-                                  16,
-                                  16,
-                                ),
-                                child: const Center(
-                                  child: Text("Encounters UI Loading..."),
-                                ),
-                                // We will replace this with EncountersTab widget shortly
+                            if (!_isDistractionFree) const SizedBox(height: 16),
+
+                            // Tab Views
+                            Expanded(
+                              child: TabBarView(
+                                physics:
+                                    const NeverScrollableScrollPhysics(), // Prevent swipe
+                                children: [
+                                  // 1. Write Tab
+                                  Container(
+                                    margin: _isDistractionFree
+                                        ? EdgeInsets.zero
+                                        : const EdgeInsets.fromLTRB(
+                                            16,
+                                            0,
+                                            16,
+                                            16,
+                                          ),
+                                    child: GlassContainer(
+                                      borderRadius: _isDistractionFree
+                                          ? BorderRadius.zero
+                                          : BorderRadius.circular(24),
+                                      opacity: _isDistractionFree ? 0 : 0.05,
+                                      child: _buildEditor(), // Existing editor
+                                    ),
+                                  ),
+
+                                  // 2. Outline Tab (Placeholder for now)
+                                  Container(
+                                    margin: const EdgeInsets.fromLTRB(
+                                      16,
+                                      0,
+                                      16,
+                                      16,
+                                    ),
+                                    child: GlassContainer(
+                                      borderRadius: BorderRadius.circular(24),
+                                      opacity: 0.05,
+                                      child: const Center(
+                                        child: Text(
+                                          "Outline View (Coming Soon)",
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+
+                                  // 3. Encounters Tab
+                                  Container(
+                                    margin: const EdgeInsets.fromLTRB(
+                                      16,
+                                      0,
+                                      16,
+                                      16,
+                                    ),
+                                    child: EncountersTab(
+                                      chapter: _chapter,
+                                      onEncounterUpdate: (encounter) async {
+                                        await DatabaseService.saveDndEncounter(
+                                          encounter,
+                                        );
+                                      },
+                                      onEncounterDelete: (encounterId) async {
+                                        await DatabaseService.deleteDndEncounter(
+                                          encounterId,
+                                        );
+                                      },
+                                    ),
+                                  ),
+
+                                  // 4. NPCs Tab
+                                  NpcsTab(book: widget.book),
+
+                                  // 5. Locations Tab
+                                  LocationsTab(book: widget.book),
+
+                                  // 6. Items Tab
+                                  ItemsTab(book: widget.book),
+
+                                  // 7. Notes Tab
+                                  NotesTab(book: widget.book),
+                                ],
                               ),
-                            ],
+                            ),
+                          ],
+                        ),
+
+                        // Integrated Action Bar (Floating)
+                        Positioned(
+                          top: _isDistractionFree
+                              ? (MediaQuery.of(context).padding.top + 16)
+                              : (MediaQuery.of(context).padding.top +
+                                    kToolbarHeight +
+                                    16),
+                          right: 16,
+                          child: IntegratedActionBar(
+                            currentMode: _isDistractionFree
+                                ? EditorMode.write
+                                : EditorMode.edit,
+                            isNotesOpen: _showNotes,
+                            isToolbarOpen: !_isToolbarCollapsed,
+                            isDistractionFree: _isDistractionFree,
+                            hasUnsavedChanges: _hasUnsavedChanges,
+                            onShowOutline: () =>
+                                setState(() => _showChapters = !_showChapters),
+                            onInfoPressed: () => setState(
+                              () => _showMetadataPanel = !_showMetadataPanel,
+                            ),
+                            // ... (keeping existing logic for onModeChanged)
+                            onModeChanged: (mode) {
+                              if (mode == EditorMode.write) {
+                                setState(
+                                  () =>
+                                      _isDistractionFree = !_isDistractionFree,
+                                );
+                              } else if (mode == EditorMode.notes) {
+                                setState(() => _showNotes = !_showNotes);
+                              } else if (mode == EditorMode.view) {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) =>
+                                        DnDExportPreviewScreen(
+                                          book: widget.book,
+                                        ),
+                                  ),
+                                );
+                              } else if (mode == EditorMode.share) {
+                                _showExportDialog();
+                              }
+                            },
                           ),
                         ),
                       ],
                     ),
-
-                    // Integrated Action Bar (Floating)
-                    Positioned(
-                      top: _isDistractionFree
-                          ? (MediaQuery.of(context).padding.top + 16)
-                          : (MediaQuery.of(context).padding.top +
-                                kToolbarHeight +
-                                16),
-                      right: 16,
-                      child: IntegratedActionBar(
-                        currentMode: _isDistractionFree
-                            ? EditorMode.write
-                            : EditorMode.edit,
-                        isNotesOpen: _showNotes,
-                        isToolbarOpen: !_isToolbarCollapsed,
-                        isDistractionFree: _isDistractionFree,
-                        hasUnsavedChanges: _hasUnsavedChanges,
-                        onShowOutline: () =>
-                            setState(() => _showChapters = !_showChapters),
-                        onInfoPressed: () => setState(
-                          () => _showMetadataPanel = !_showMetadataPanel,
-                        ),
-                        // ... (keeping existing logic for onModeChanged)
-                        onModeChanged: (mode) {
-                          if (mode == EditorMode.write) {
-                            setState(
-                              () => _isDistractionFree = !_isDistractionFree,
-                            );
-                          } else if (mode == EditorMode.notes) {
-                            setState(() => _showNotes = !_showNotes);
-                          }
-                          // Extended logic handled in existing method if needed
-                        },
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-
-              // Right Sidebar (Metadata)
-              if (!_isDistractionFree && _showMetadataPanel)
-                Padding(
-                  padding: const EdgeInsets.only(top: kToolbarHeight + 8),
-                  child: GlassContainer(
-                    width: 300,
-                    borderRadius: const BorderRadius.only(
-                      topLeft: Radius.circular(24),
-                      bottomLeft: Radius.circular(24),
-                    ),
-                    opacity: 0.1,
-                    child: Center(
-                      child: Text(
-                        "Adventure Metadata\n(Coming Soon)",
-                        textAlign: TextAlign.center,
-                        style: TextStyle(color: Color(0xFFD7CCC8)),
-                      ),
-                    ),
                   ),
-                ),
-            ],
-          ),
-        ),
+
+                  // Right Sidebar (Metadata)
+                  if (!_isDistractionFree && _showMetadataPanel)
+                    Padding(
+                      padding: const EdgeInsets.only(top: kToolbarHeight + 8),
+                      child: GlassContainer(
+                        width: 300,
+                        borderRadius: const BorderRadius.only(
+                          topLeft: Radius.circular(24),
+                          bottomLeft: Radius.circular(24),
+                        ),
+                        opacity: 0.1,
+                        child: Center(
+                          child: Text(
+                            "Adventure Metadata\n(Coming Soon)",
+                            textAlign: TextAlign.center,
+                            style: TextStyle(color: Color(0xFFD7CCC8)),
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          );
+        },
       ),
     );
   }
@@ -402,6 +477,196 @@ class _AdventureEditorScreenState extends State<AdventureEditorScreen> {
           ),
         ),
       ],
+    );
+  }
+
+  void _showExportDialog() {
+    DnDExportFormat selectedFormat = DnDExportFormat.pdf;
+    DnDExportMode selectedMode = DnDExportMode.gm;
+    DnDExportTheme selectedTheme = DnDExportTheme.parchment;
+
+    showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: const Text('Export Adventure'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              DropdownButtonFormField<DnDExportFormat>(
+                value: selectedFormat,
+                decoration: const InputDecoration(labelText: 'Format'),
+                items: DnDExportFormat.values.map((f) {
+                  return DropdownMenuItem(
+                    value: f,
+                    child: Text(f.name.toUpperCase()),
+                  );
+                }).toList(),
+                onChanged: (val) => setDialogState(() => selectedFormat = val!),
+              ),
+              DropdownButtonFormField<DnDExportMode>(
+                value: selectedMode,
+                decoration: const InputDecoration(labelText: 'Version'),
+                items: DnDExportMode.values.map((m) {
+                  return DropdownMenuItem(
+                    value: m,
+                    child: Text(
+                      m == DnDExportMode.gm ? 'Game Master' : 'Player',
+                    ),
+                  );
+                }).toList(),
+                onChanged: (val) => setDialogState(() => selectedMode = val!),
+              ),
+              DropdownButtonFormField<DnDExportTheme>(
+                value: selectedTheme,
+                decoration: const InputDecoration(labelText: 'Theme'),
+                items: DnDExportTheme.values.map((t) {
+                  return DropdownMenuItem(
+                    value: t,
+                    child: Text(t.name.toUpperCase()),
+                  );
+                }).toList(),
+                onChanged: (val) => setDialogState(() => selectedTheme = val!),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () async {
+                Navigator.pop(context);
+                ScaffoldMessenger.of(
+                  context,
+                ).showSnackBar(const SnackBar(content: Text('Exporting...')));
+
+                try {
+                  final chapters = await DatabaseService.getChapters(
+                    widget.book.id,
+                  );
+                  final npcs = await DatabaseService.getDndNpcs(widget.book.id);
+                  final locations = await DatabaseService.getDndLocations(
+                    widget.book.id,
+                  );
+                  final items = await DatabaseService.getDndMagicItems(
+                    widget.book.id,
+                  );
+                  final notes = await DatabaseService.getDndNotes(
+                    widget.book.id,
+                  );
+                  final encounters = await DatabaseService.getDndEncounters(
+                    widget.book.id,
+                  );
+
+                  if (selectedFormat == DnDExportFormat.pdf) {
+                    await DnDExportService.exportAdventureToPdf(
+                      book: widget.book,
+                      chapters: chapters,
+                      npcs: npcs,
+                      locations: locations,
+                      items: items,
+                      notes: notes,
+                      encounters: encounters,
+                      mode: selectedMode,
+                      theme: selectedTheme,
+                    );
+                  } else {
+                    final html = DnDExportService.exportAdventureToHtml(
+                      book: widget.book,
+                      chapters: chapters,
+                      npcs: npcs,
+                      locations: locations,
+                      items: items,
+                      notes: notes,
+                      encounters: encounters,
+                      mode: selectedMode,
+                      theme: selectedTheme,
+                    );
+                    // Use standard export service for HTML file saving
+                    await ExportService.saveFile(
+                      widget.book.title,
+                      '.html',
+                      Uint8List.fromList(utf8.encode(html)),
+                    );
+                  }
+
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Export Successful!')),
+                    );
+                  }
+                } catch (e) {
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('Export Failed: $e')),
+                    );
+                  }
+                }
+              },
+              child: const Text('Export'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget? _buildFab(bool isMobile) {
+    if (!isMobile) return null;
+
+    return FloatingActionButton(
+      onPressed: () {
+        showModalBottomSheet(
+          context: context,
+          builder: (context) => GlassContainer(
+            padding: const EdgeInsets.all(16),
+            borderRadius: const BorderRadius.only(
+              topLeft: Radius.circular(24),
+              topRight: Radius.circular(24),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text(
+                  'Quick Create',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+                ),
+                const SizedBox(height: 16),
+                ListTile(
+                  leading: const Icon(Icons.person_add),
+                  title: const Text('Add NPC'),
+                  onTap: () {
+                    Navigator.pop(context);
+                    // Open NPC Tab
+                    DefaultTabController.of(context).animateTo(3);
+                  },
+                ),
+                ListTile(
+                  leading: const Icon(Icons.add_location),
+                  title: const Text('Add Location'),
+                  onTap: () {
+                    Navigator.pop(context);
+                    // Open Location Tab
+                    DefaultTabController.of(context).animateTo(4);
+                  },
+                ),
+                ListTile(
+                  leading: const Icon(Icons.note_add),
+                  title: const Text('Add Note'),
+                  onTap: () {
+                    Navigator.pop(context);
+                    // Open Note Tab
+                    DefaultTabController.of(context).animateTo(6);
+                  },
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+      child: const Icon(Icons.add),
     );
   }
 }
