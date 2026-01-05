@@ -46,15 +46,19 @@ jobs:
           build-mode: manual
 
       - name: Flutter pub get
+        working-directory: Open_Draft
         run: flutter pub get
 
       - name: Build Android (Java/Kotlin)
-        working-directory: android
-        run: ./gradlew assembleDebug --no-daemon
+        working-directory: Open_Draft/android
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleDebug --no-daemon
 
       - name: Build iOS (Swift)
-        working-directory: ios
-        run: xcodebuild -scheme Runner -sdk iphonesimulator -configuration Debug build
+        working-directory: Open_Draft/ios
+        run: |
+          xcodebuild -scheme Runner -sdk iphonesimulator -configuration Debug build
 
       - name: Perform CodeQL Analysis
         uses: github/codeql-action/analyze@v4
