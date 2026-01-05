@@ -48,13 +48,21 @@ jobs:
       - name: Flutter pub get
         run: flutter pub get
 
+      # -------------------------
+      # ANDROID BUILD (ONLY FOR JAVA/KOTLIN)
+      # -------------------------
       - name: Build Android (Java/Kotlin)
+        if: matrix.language == 'java-kotlin'
         run: |
           cd android
           chmod +x gradlew
           ./gradlew assembleDebug --no-daemon
 
+      # -------------------------
+      # IOS BUILD (ONLY FOR SWIFT)
+      # -------------------------
       - name: Build iOS (Swift)
+        if: matrix.language == 'swift'
         run: |
           cd ios
           xcodebuild -scheme Runner -sdk iphonesimulator -configuration Debug build
