@@ -1,4 +1,4 @@
-name: OpenDraft Release
+name: OpenDraft CI
 
 permissions:
   contents: write
@@ -7,21 +7,152 @@ on:
   push:
     branches: [ main ]
 
-# Prevent multiple releases running at once
-concurrency:
-  group: release
-  cancel-in-progress: true
-
 env:
   NO_WATCHER: true
   CHOKIDAR_USEPOLLING: true
   GRADLE_OPTS: "-Dorg.gradle.vfs.watch=false"
 
 jobs:
+
+  # -------------------------
+  # ANDROID
+  # -------------------------
+  build-android:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+
+      - name: Auto-increment build number
+        run: |
+          VERSION_LINE=$(grep '^version:' pubspec.yaml)
+          VERSION=$(echo $VERSION_LINE | cut -d ' ' -f2)
+          BASE=$(echo $VERSION | cut -d+ -f1)
+          BUILD=$(echo $VERSION | cut -d+ -f2)
+          NEW_BUILD=$((BUILD + 1))
+          NEW_VERSION="$BASE+$NEW_BUILD"
+          sed -i "s/version: .*/version: $NEW_VERSION/" pubspec.yaml
+          echo "New version: $NEW_VERSION"
+
+      - run: flutter pub get
+      - run: flutter build apk --release
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: android-apk
+          path: build/app/outputs/flutter-apk/app-release.apk
+
+  # -------------------------
+  # WINDOWS
+  # -------------------------
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+
+      - run: flutter config --enable-windows-desktop
+      - run: flutter pub get
+      - run: flutter build windows --release
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows-exe
+          path: build/windows/x64/runner/Release/
+
+  # -------------------------
+  # LINUX
+  # -------------------------
+  build-linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+
+      - run: sudo apt-get update
+      - run: sudo apt-get install -y clang cmake ninja-build pkg-config libgtk-3-dev
+      - run: flutter config --enable-linux-desktop
+      - run: flutter pub get
+      - run: flutter build linux --release
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: linux-build
+          path: build/linux/x64/release/
+
+  # -------------------------
+  # WEB
+  # -------------------------
+  build-web:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+
+      - run: flutter pub get
+      - run: flutter build web --release
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: web-build
+          path: build/web/
+
+  # -------------------------
+  # MACOS
+  # -------------------------
+  build-macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+
+      - run: flutter config --enable-macos-desktop
+      - run: flutter pub get
+      - run: flutter build macos --release
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: macos-app
+          path: build/macos/Build/Products/Release/
+
+  # -------------------------
+  # IOS
+  # -------------------------
+  build-ios:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+
+      - run: flutter pub get
+      - run: flutter build ios --release --no-codesign
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ios-build
+          path: build/ios/iphoneos/
+
+  # -------------------------
+  # RELEASE (BUNDLED ZIPS)
+  # -------------------------
   release:
     needs: [build-android, build-windows, build-linux, build-web, build-macos, build-ios]
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    permissions:
+      contents: write
 
     steps:
       - name: Download all artifacts
