@@ -159,19 +159,25 @@ class IntegratedActionBar extends StatelessWidget {
   }
 
   Widget _buildInfoButton(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
     return InkWell(
       onTap: onInfoPressed,
       borderRadius: BorderRadius.circular(20),
       child: Container(
-        padding: const EdgeInsets.all(4),
+        padding: const EdgeInsets.all(6),
         decoration: BoxDecoration(
           shape: BoxShape.circle,
+          color: colorScheme.onSurface.withValues(alpha: 0.05),
           border: Border.all(
-            color: Colors.red.withValues(alpha: 0.5),
-            width: 1.5,
+            color: colorScheme.outline.withValues(alpha: 0.2),
+            width: 1,
           ),
         ),
-        child: const Icon(Icons.info_outline, size: 14, color: Colors.red),
+        child: Icon(
+          Icons.info_outline,
+          size: 16,
+          color: colorScheme.onSurface.withValues(alpha: 0.6),
+        ),
       ),
     );
   }

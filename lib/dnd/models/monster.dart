@@ -19,6 +19,8 @@ class Monster {
   final double challengeRating;
   final List<MonsterAction> actions;
   final String? imgUrl;
+  final String? imageSource; // 'Open5e', '5e.tools', etc.
+  final String? description;
   final String source; // 'SRD' or '5e.tools' or 'Custom'
 
   const Monster({
@@ -42,6 +44,8 @@ class Monster {
     required this.challengeRating,
     this.actions = const [],
     this.imgUrl,
+    this.imageSource,
+    this.description,
     this.source = 'SRD',
   });
 
@@ -75,9 +79,21 @@ class Monster {
               ?.map((e) => MonsterAction.fromJson(e))
               .toList() ??
           [],
-      imgUrl: json['img_main'],
+      imgUrl: _processImageUrl(
+        json['img_main'] ?? json['image'] ?? json['img_url'] ?? json['img'],
+      ),
+      imageSource: json['image_source'] ?? 'Open5e',
+      description: json['desc'],
       source: json['document__slug'] ?? 'SRD',
     );
+  }
+
+  static String? _processImageUrl(dynamic url) {
+    if (url == null || url is! String || url.isEmpty) return null;
+    if (url.startsWith('http://')) {
+      return url.replaceFirst('http://', 'https://');
+    }
+    return url;
   }
 
   Map<String, dynamic> toJson() {
@@ -102,8 +118,62 @@ class Monster {
       'challenge_rating': challengeRating,
       'actions': actions.map((e) => e.toJson()).toList(),
       'img_main': imgUrl,
+      'image_source': imageSource,
+      'desc': description,
       'source': source,
     };
+  }
+
+  Monster copyWith({
+    String? slug,
+    String? name,
+    String? size,
+    String? type,
+    String? subtype,
+    String? alignment,
+    int? armorClass,
+    String? armorDesc,
+    int? hitPoints,
+    String? hitDice,
+    Map<String, dynamic>? speed,
+    int? strength,
+    int? dexterity,
+    int? constitution,
+    int? intelligence,
+    int? wisdom,
+    int? charisma,
+    double? challengeRating,
+    List<MonsterAction>? actions,
+    String? imgUrl,
+    String? imageSource,
+    String? description,
+    String? source,
+  }) {
+    return Monster(
+      slug: slug ?? this.slug,
+      name: name ?? this.name,
+      size: size ?? this.size,
+      type: type ?? this.type,
+      subtype: subtype ?? this.subtype,
+      alignment: alignment ?? this.alignment,
+      armorClass: armorClass ?? this.armorClass,
+      armorDesc: armorDesc ?? this.armorDesc,
+      hitPoints: hitPoints ?? this.hitPoints,
+      hitDice: hitDice ?? this.hitDice,
+      speed: speed ?? this.speed,
+      strength: strength ?? this.strength,
+      dexterity: dexterity ?? this.dexterity,
+      constitution: constitution ?? this.constitution,
+      intelligence: intelligence ?? this.intelligence,
+      wisdom: wisdom ?? this.wisdom,
+      charisma: charisma ?? this.charisma,
+      challengeRating: challengeRating ?? this.challengeRating,
+      actions: actions ?? this.actions,
+      imgUrl: imgUrl ?? this.imgUrl,
+      imageSource: imageSource ?? this.imageSource,
+      description: description ?? this.description,
+      source: source ?? this.source,
+    );
   }
 }
 

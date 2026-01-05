@@ -2,7 +2,9 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import '../models/monster.dart';
 import '../services/dnd_service.dart';
+import 'monster_detail_dialog.dart';
 import '../../widgets/glass_container.dart';
+import 'package:flutter/foundation.dart';
 
 class AddMonsterDialog extends StatefulWidget {
   const AddMonsterDialog({super.key});
@@ -15,12 +17,43 @@ class _AddMonsterDialogState extends State<AddMonsterDialog> {
   final TextEditingController _searchController = TextEditingController();
   List<Monster> _results = [];
   bool _isLoading = false;
+  bool _isInitializing = false;
+  MonsterImageProvider _selectedProvider = MonsterImageProvider.open5e;
   Timer? _debounce;
+
+  String _selectedType = '';
+  String _sortBy = 'Name';
+  final List<String> _types = [
+    '',
+    'aberration',
+    'beast',
+    'celestial',
+    'construct',
+    'dragon',
+    'elemental',
+    'fey',
+    'fiend',
+    'giant',
+    'humanoid',
+    'monstrosity',
+    'ooze',
+    'plant',
+    'undead',
+  ];
 
   @override
   void initState() {
     super.initState();
-    _searchMonsers('');
+    _isInitializing = true;
+    _initialize();
+  }
+
+  Future<void> _initialize() async {
+    await DnDService.initialize();
+    if (mounted) {
+      setState(() => _isInitializing = false);
+      _searchMonsers('');
+    }
   }
 
   @override
@@ -41,13 +74,35 @@ class _AddMonsterDialogState extends State<AddMonsterDialog> {
     if (!mounted) return;
     setState(() => _isLoading = true);
 
-    final monsters = await DnDService.searchMonsters(query);
+    final monsters = await DnDService.searchMonsters(
+      query,
+      type: _selectedType,
+      imageProvider: _selectedProvider,
+    );
 
     if (mounted) {
       setState(() {
         _results = monsters;
+        _sortResults();
         _isLoading = false;
       });
+    }
+  }
+
+  void _sortResults() {
+    switch (_sortBy) {
+      case 'CR':
+        _results.sort(
+          (a, b) => (a.challengeRating).compareTo(b.challengeRating),
+        );
+        break;
+      case 'HP':
+        _results.sort((a, b) => b.hitPoints.compareTo(a.hitPoints));
+        break;
+      case 'Name':
+      default:
+        _results.sort((a, b) => a.name.compareTo(b.name));
+        break;
     }
   }
 
@@ -89,9 +144,94 @@ class _AddMonsterDialogState extends State<AddMonsterDialog> {
             ),
             const Divider(height: 1, color: Colors.white24),
 
-            // Results
+            // Filters & Sorting
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: DropdownButtonHideUnderline(
+                      child: DropdownButton<String>(
+                        isExpanded: true,
+                        value: _selectedType,
+                        dropdownColor: Colors.grey[900],
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 13,
+                        ),
+                        hint: const Text(
+                          "All Types",
+                          style: TextStyle(color: Colors.white54),
+                        ),
+                        items: _types
+                            .map(
+                              (t) => DropdownMenuItem(
+                                value: t,
+                                child: Text(
+                                  t.isEmpty
+                                      ? "All Types"
+                                      : t[0].toUpperCase() + t.substring(1),
+                                ),
+                              ),
+                            )
+                            .toList(),
+                        onChanged: (val) {
+                          setState(() => _selectedType = val!);
+                          _searchMonsers(_searchController.text);
+                        },
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: DropdownButtonHideUnderline(
+                      child: DropdownButton<MonsterImageProvider>(
+                        isExpanded: true,
+                        value: _selectedProvider,
+                        dropdownColor: Colors.grey[900],
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 13,
+                        ),
+                        items: MonsterImageProvider.values
+                            .map(
+                              (p) => DropdownMenuItem(
+                                value: p,
+                                child: Text("API: ${p.name}"),
+                              ),
+                            )
+                            .toList(),
+                        onChanged: (val) {
+                          setState(() => _selectedProvider = val!);
+                          _searchMonsers(_searchController.text);
+                        },
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const Divider(height: 1, color: Colors.white24),
+
             Expanded(
-              child: _isLoading
+              child: _isInitializing
+                  ? Center(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const CircularProgressIndicator(),
+                          const SizedBox(height: 16),
+                          Text(
+                            "Initializing image database...",
+                            style: TextStyle(
+                              color: Colors.white.withValues(alpha: 0.7),
+                              fontStyle: FontStyle.italic,
+                            ),
+                          ),
+                        ],
+                      ),
+                    )
+                  : _isLoading
                   ? const Center(child: CircularProgressIndicator())
                   : _results.isEmpty
                   ? const Center(
@@ -108,6 +248,44 @@ class _AddMonsterDialogState extends State<AddMonsterDialog> {
                       itemBuilder: (context, index) {
                         final monster = _results[index];
                         return ListTile(
+                          leading: monster.imgUrl != null
+                              ? ClipRRect(
+                                  borderRadius: BorderRadius.circular(4),
+                                  child: Image.network(
+                                    kIsWeb
+                                        ? 'https://corsproxy.io/?${Uri.encodeComponent(monster.imgUrl!)}'
+                                        : monster.imgUrl!,
+                                    width: 48,
+                                    height: 48,
+                                    fit: BoxFit.cover,
+                                    errorBuilder:
+                                        (context, error, stackTrace) =>
+                                            Container(
+                                              width: 48,
+                                              height: 48,
+                                              decoration: BoxDecoration(
+                                                color: Colors.red.withValues(
+                                                  alpha: 0.1,
+                                                ),
+                                                border: Border.all(
+                                                  color: Colors.red.withValues(
+                                                    alpha: 0.3,
+                                                  ),
+                                                ),
+                                                borderRadius:
+                                                    BorderRadius.circular(4),
+                                              ),
+                                              child: const Center(
+                                                child: Icon(
+                                                  Icons.error_outline,
+                                                  color: Colors.redAccent,
+                                                  size: 16,
+                                                ),
+                                              ),
+                                            ),
+                                  ),
+                                )
+                              : const Icon(Icons.pets, color: Colors.white24),
                           title: Text(
                             monster.name,
                             style: const TextStyle(
@@ -115,27 +293,69 @@ class _AddMonsterDialogState extends State<AddMonsterDialog> {
                               fontWeight: FontWeight.bold,
                             ),
                           ),
-                          subtitle: Text(
-                            '${monster.size} ${monster.type} • CR ${monster.challengeRating}',
-                            style: const TextStyle(color: Colors.white70),
-                          ),
-                          trailing: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            crossAxisAlignment: CrossAxisAlignment.end,
+                          subtitle: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                'AC ${monster.armorClass}',
+                                '${monster.size} ${monster.type} • CR ${monster.challengeRating}',
                                 style: const TextStyle(
                                   color: Colors.white70,
-                                  fontSize: 12,
+                                  fontSize: 11,
                                 ),
                               ),
-                              Text(
-                                'HP ${monster.hitPoints}',
-                                style: const TextStyle(
-                                  color: Colors.greenAccent,
-                                  fontSize: 12,
+                              if (monster.description != null &&
+                                  monster.description!.isNotEmpty)
+                                Text(
+                                  monster.description!,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    color: Colors.white38,
+                                    fontSize: 10,
+                                  ),
                                 ),
+                            ],
+                          ),
+                          isThreeLine:
+                              monster.description != null &&
+                              monster.description!.isNotEmpty,
+                          trailing: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              IconButton(
+                                icon: const Icon(
+                                  Icons.info_outline,
+                                  color: Colors.blueAccent,
+                                  size: 20,
+                                ),
+                                onPressed: () {
+                                  showDialog(
+                                    context: context,
+                                    builder: (context) =>
+                                        MonsterDetailDialog(monster: monster),
+                                  );
+                                },
+                              ),
+                              const SizedBox(width: 4),
+                              Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                crossAxisAlignment: CrossAxisAlignment.end,
+                                children: [
+                                  Text(
+                                    'AC ${monster.armorClass}',
+                                    style: const TextStyle(
+                                      color: Colors.white70,
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                  Text(
+                                    'HP ${monster.hitPoints}',
+                                    style: const TextStyle(
+                                      color: Colors.greenAccent,
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                ],
                               ),
                             ],
                           ),

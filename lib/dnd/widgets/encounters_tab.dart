@@ -72,6 +72,56 @@ class _EncountersTabState extends State<EncountersTab> {
       _encounters.add(newEncounter);
     });
     widget.onEncounterUpdate(newEncounter);
+
+    if (mounted) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => EncounterEditorScreen(
+            encounter: newEncounter,
+            onSave: (updated) {
+              setState(() {
+                final idx = _encounters.indexWhere((e) => e.id == updated.id);
+                if (idx != -1) {
+                  _encounters[idx] = updated;
+                }
+              });
+              widget.onEncounterUpdate(updated);
+            },
+            onDelete: () => _deleteEncounter(newEncounter),
+          ),
+        ),
+      );
+    }
+  }
+
+  Future<void> _deleteEncounter(Encounter encounter) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text("Delete Encounter"),
+        content: Text("Are you sure you want to delete '${encounter.title}'?"),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text("Cancel"),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: TextButton.styleFrom(foregroundColor: Colors.redAccent),
+            child: const Text("Delete"),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      await DatabaseService.deleteDndEncounter(encounter.id);
+      setState(() {
+        _encounters.removeWhere((e) => e.id == encounter.id);
+      });
+      widget.onEncounterDelete(encounter.id);
+    }
   }
 
   @override
@@ -151,6 +201,7 @@ class _EncountersTabState extends State<EncountersTab> {
                       padding: const EdgeInsets.only(bottom: 12),
                       child: EncounterCard(
                         encounter: encounter,
+                        onDelete: () => _deleteEncounter(encounter),
                         onTap: () {
                           Navigator.push(
                             context,
@@ -163,6 +214,7 @@ class _EncountersTabState extends State<EncountersTab> {
                                   });
                                   widget.onEncounterUpdate(updated);
                                 },
+                                onDelete: () => _deleteEncounter(encounter),
                               ),
                             ),
                           );

@@ -26,7 +26,7 @@ class DatabaseService {
   static final Logger _logger = Logger();
   static Database? _database;
   static const String _dbName = 'novel_writer.db';
-  static const int _dbVersion = 9;
+  static const int _dbVersion = 11;
 
   /// Helper to get accurate word count from content
   static int _getWordCount(String content) {
@@ -231,6 +231,8 @@ class DatabaseService {
         race TEXT,
         characterClass TEXT,
         alignment TEXT,
+        size TEXT,
+        type TEXT,
         role TEXT,
         traits TEXT,
         ideals TEXT,
@@ -280,6 +282,7 @@ class DatabaseService {
         effects TEXT,
         hiddenPowers TEXT,
         mechanics TEXT,
+        customProperties TEXT,
         redactions TEXT,
         createdAt TEXT NOT NULL,
         updatedAt TEXT NOT NULL,
@@ -424,6 +427,15 @@ class DatabaseService {
           type TEXT NOT NULL
         )
       ''');
+    }
+    if (oldVersion < 10) {
+      await db.execute(
+        'ALTER TABLE dnd_items ADD COLUMN customProperties TEXT',
+      );
+    }
+    if (oldVersion < 11) {
+      await db.execute('ALTER TABLE dnd_npcs ADD COLUMN size TEXT');
+      await db.execute('ALTER TABLE dnd_npcs ADD COLUMN type TEXT');
     }
   }
 
@@ -1656,9 +1668,20 @@ class DatabaseService {
       await prefs.setString(_webDndNpcsKey, jsonEncode(list));
     } else {
       final db = await database;
+      final map = npc.toJson();
+      // SQLite requires strings for lists/maps
+      map['traits'] = jsonEncode(map['traits']);
+      map['ideals'] = jsonEncode(map['ideals']);
+      map['bonds'] = jsonEncode(map['bonds']);
+      map['flaws'] = jsonEncode(map['flaws']);
+      map['abilityScores'] = jsonEncode(map['abilityScores']);
+      map['redactions'] = map['redactions'] != null
+          ? jsonEncode(map['redactions'])
+          : null;
+
       await db.insert(
         'dnd_npcs',
-        npc.toJson(),
+        map,
         conflictAlgorithm: ConflictAlgorithm.replace,
       );
     }
@@ -1680,7 +1703,22 @@ class DatabaseService {
         where: 'adventureId = ?',
         whereArgs: [adventureId],
       );
-      return maps.map((map) => dnd.Npc.fromJson(map)).toList();
+      return maps.map((map) {
+        final newMap = Map<String, dynamic>.from(map);
+        if (newMap['traits'] is String)
+          newMap['traits'] = jsonDecode(newMap['traits']);
+        if (newMap['ideals'] is String)
+          newMap['ideals'] = jsonDecode(newMap['ideals']);
+        if (newMap['bonds'] is String)
+          newMap['bonds'] = jsonDecode(newMap['bonds']);
+        if (newMap['flaws'] is String)
+          newMap['flaws'] = jsonDecode(newMap['flaws']);
+        if (newMap['abilityScores'] is String)
+          newMap['abilityScores'] = jsonDecode(newMap['abilityScores']);
+        if (newMap['redactions'] is String)
+          newMap['redactions'] = jsonDecode(newMap['redactions']);
+        return dnd.Npc.fromJson(newMap);
+      }).toList();
     }
   }
 
@@ -1770,9 +1808,16 @@ class DatabaseService {
       await prefs.setString(_webDndItemsKey, jsonEncode(list));
     } else {
       final db = await database;
+      final map = item.toJson();
+      // SQLite requires strings for lists/maps
+      map['customProperties'] = jsonEncode(map['customProperties']);
+      map['redactions'] = map['redactions'] != null
+          ? jsonEncode(map['redactions'])
+          : null;
+
       await db.insert(
         'dnd_items',
-        item.toJson(),
+        map,
         conflictAlgorithm: ConflictAlgorithm.replace,
       );
     }
@@ -1796,7 +1841,16 @@ class DatabaseService {
         where: 'adventureId = ?',
         whereArgs: [adventureId],
       );
-      return maps.map((map) => dnd.MagicItem.fromJson(map)).toList();
+      return maps.map((map) {
+        final newMap = Map<String, dynamic>.from(map);
+        if (newMap['customProperties'] is String) {
+          newMap['customProperties'] = jsonDecode(newMap['customProperties']);
+        }
+        if (newMap['redactions'] is String) {
+          newMap['redactions'] = jsonDecode(newMap['redactions']);
+        }
+        return dnd.MagicItem.fromJson(newMap);
+      }).toList();
     }
   }
 

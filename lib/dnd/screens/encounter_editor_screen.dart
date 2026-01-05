@@ -4,15 +4,18 @@ import '../models/encounter.dart';
 import '../../widgets/glass_container.dart';
 import '../../widgets/glass_background.dart';
 import '../widgets/add_monster_dialog.dart';
+import 'package:flutter/foundation.dart';
 
 class EncounterEditorScreen extends StatefulWidget {
   final Encounter encounter;
   final Function(Encounter) onSave;
+  final VoidCallback? onDelete;
 
   const EncounterEditorScreen({
     super.key,
     required this.encounter,
     required this.onSave,
+    this.onDelete,
   });
 
   @override
@@ -96,6 +99,36 @@ class _EncounterEditorScreenState extends State<EncounterEditorScreen> {
     Navigator.pop(context);
   }
 
+  Future<void> _delete() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text("Delete Encounter"),
+        content: Text(
+          "Are you sure you want to delete '${_titleController.text}'?",
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text("Cancel"),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: TextButton.styleFrom(foregroundColor: Colors.redAccent),
+            child: const Text("Delete"),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      if (widget.onDelete != null) {
+        widget.onDelete!();
+      }
+      Navigator.pop(context);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return GlassBackground(
@@ -110,6 +143,11 @@ class _EncounterEditorScreenState extends State<EncounterEditorScreen> {
           ),
           title: const Text("Edit Encounter"),
           actions: [
+            IconButton(
+              icon: const Icon(Icons.delete_outline, color: Colors.redAccent),
+              onPressed: _delete,
+              tooltip: "Delete Encounter",
+            ),
             TextButton(
               onPressed: _save,
               child: const Text(
@@ -145,7 +183,7 @@ class _EncounterEditorScreenState extends State<EncounterEditorScreen> {
                         children: [
                           Expanded(
                             child: DropdownButtonFormField<String>(
-                              value: _environments.contains(_environment)
+                              initialValue: _environments.contains(_environment)
                                   ? _environment
                                   : _environments.first,
                               dropdownColor: Theme.of(
@@ -168,12 +206,34 @@ class _EncounterEditorScreenState extends State<EncounterEditorScreen> {
                           ),
                           const SizedBox(width: 16),
                           Expanded(
-                            child: TextFormField(
-                              initialValue: _difficulty,
-                              decoration: const InputDecoration(
-                                labelText: 'Difficulty (Manual)',
-                              ),
-                              onChanged: (val) => _difficulty = val,
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Difficulty: $_difficulty',
+                                  style: TextStyle(
+                                    color: _getDifficultyColor(_difficulty),
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                                Slider(
+                                  value: _getDifficultyIndex(
+                                    _difficulty,
+                                  ).toDouble(),
+                                  min: 0,
+                                  max: 3,
+                                  divisions: 3,
+                                  activeColor: _getDifficultyColor(_difficulty),
+                                  onChanged: (val) {
+                                    setState(() {
+                                      _difficulty = _getDifficultyFromIndex(
+                                        val.toInt(),
+                                      );
+                                    });
+                                  },
+                                ),
+                              ],
                             ),
                           ),
                         ],
@@ -223,12 +283,51 @@ class _EncounterEditorScreenState extends State<EncounterEditorScreen> {
                         borderRadius: BorderRadius.circular(12),
                         opacity: 0.1,
                         child: ListTile(
+                          leading: m.monsterSnapshot?.imgUrl != null
+                              ? ClipRRect(
+                                  borderRadius: BorderRadius.circular(4),
+                                  child: Image.network(
+                                    kIsWeb
+                                        ? 'https://corsproxy.io/?${Uri.encodeComponent(m.monsterSnapshot!.imgUrl!)}'
+                                        : m.monsterSnapshot!.imgUrl!,
+                                    width: 40,
+                                    height: 40,
+                                    fit: BoxFit.cover,
+                                    errorBuilder:
+                                        (context, error, stackTrace) =>
+                                            Container(
+                                              width: 40,
+                                              height: 40,
+                                              decoration: BoxDecoration(
+                                                color: Colors.red.withValues(
+                                                  alpha: 0.1,
+                                                ),
+                                                border: Border.all(
+                                                  color: Colors.red.withValues(
+                                                    alpha: 0.3,
+                                                  ),
+                                                ),
+                                                borderRadius:
+                                                    BorderRadius.circular(4),
+                                              ),
+                                              child: const Center(
+                                                child: Icon(
+                                                  Icons.error_outline,
+                                                  color: Colors.redAccent,
+                                                  size: 14,
+                                                ),
+                                              ),
+                                            ),
+                                  ),
+                                )
+                              : const Icon(Icons.pets, color: Colors.white24),
                           title: Text(
                             m.customName,
                             style: const TextStyle(fontWeight: FontWeight.bold),
                           ),
                           subtitle: Text(
                             'HP: ${m.maxHp} | AC: ${m.monsterSnapshot?.armorClass ?? "?"} | CR: ${m.monsterSnapshot?.challengeRating ?? "?"}',
+                            style: const TextStyle(fontSize: 11),
                           ),
                           trailing: IconButton(
                             icon: const Icon(
@@ -242,7 +341,7 @@ class _EncounterEditorScreenState extends State<EncounterEditorScreen> {
                     );
                   },
                 ),
-
+              _buildMonsterSlideshow(),
               const SizedBox(height: 24),
 
               // GM Notes
@@ -273,6 +372,115 @@ class _EncounterEditorScreenState extends State<EncounterEditorScreen> {
           ),
         ),
       ),
+    );
+  }
+
+  Color _getDifficultyColor(String rating) {
+    switch (rating) {
+      case 'Easy':
+        return Colors.green;
+      case 'Medium':
+        return Colors.orange;
+      case 'Hard':
+        return Colors.red;
+      case 'Deadly':
+        return Colors.purple;
+      default:
+        return Colors.grey;
+    }
+  }
+
+  int _getDifficultyIndex(String rating) {
+    switch (rating) {
+      case 'Easy':
+        return 0;
+      case 'Medium':
+        return 1;
+      case 'Hard':
+        return 2;
+      case 'Deadly':
+        return 3;
+      default:
+        return 0;
+    }
+  }
+
+  String _getDifficultyFromIndex(int index) {
+    const ratings = ['Easy', 'Medium', 'Hard', 'Deadly'];
+    if (index >= 0 && index < ratings.length) {
+      return ratings[index];
+    }
+    return 'Easy';
+  }
+
+  Widget _buildMonsterSlideshow() {
+    final monstersWithImages = _monsters
+        .where((m) => m.monsterSnapshot?.imgUrl != null)
+        .toList();
+    if (monstersWithImages.isEmpty) return const SizedBox.shrink();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const SizedBox(height: 16),
+        SizedBox(
+          height: 160,
+          child: ListView.builder(
+            scrollDirection: Axis.horizontal,
+            itemCount: monstersWithImages.length,
+            itemBuilder: (context, index) {
+              final m = monstersWithImages[index];
+              final imgUrl = m.monsterSnapshot!.imgUrl!;
+              return Padding(
+                padding: const EdgeInsets.only(right: 16),
+                child: Column(
+                  children: [
+                    Expanded(
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(12),
+                        child: Image.network(
+                          kIsWeb
+                              ? 'https://corsproxy.io/?${Uri.encodeComponent(imgUrl)}'
+                              : imgUrl,
+                          width: 140,
+                          fit: BoxFit.cover,
+                          errorBuilder: (context, error, stackTrace) =>
+                              Container(
+                                width: 140,
+                                decoration: BoxDecoration(
+                                  color: Colors.red.withValues(alpha: 0.1),
+                                  border: Border.all(
+                                    color: Colors.red.withValues(alpha: 0.3),
+                                  ),
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: const Center(
+                                  child: Icon(
+                                    Icons.error_outline,
+                                    color: Colors.redAccent,
+                                    size: 24,
+                                  ),
+                                ),
+                              ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      m.customName,
+                      style: const TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w500,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
+        ),
+      ],
     );
   }
 }

@@ -48,10 +48,12 @@ class _AdventureEditorScreenState extends State<AdventureEditorScreen> {
   bool _showMetadataPanel = true;
   bool _showNotes = false;
   bool _isDistractionFree = false;
-  final bool _isToolbarCollapsed = false;
   late Chapter _chapter;
   Timer? _saveDebounce;
   late FocusNode _focusNode;
+  EditorMode currentMode = EditorMode.write;
+  bool _isLoadingChapters = false;
+  List<Chapter> _chapterList = [];
 
   @override
   void initState() {
@@ -60,20 +62,37 @@ class _AdventureEditorScreenState extends State<AdventureEditorScreen> {
     _chapter = widget.chapter;
     _titleController = TextEditingController(text: _chapter.title);
     _initQuillController();
+    _loadChapters();
 
     // Apply specific theme for Adventure directly if needed, or rely on Book theme
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      // DnD Theme (Dark Brown / Parchment)
-      Provider.of<ThemeService>(
-        context,
-        listen: false,
-      ).setSeedColor(const Color(0xFF5D4037));
+      if (mounted) {
+        Provider.of<ThemeService>(
+          context,
+          listen: false,
+        ).setSeedColor(const Color(0xFF5D4037));
+      }
     });
 
     _titleController.addListener(() {
       if (!_hasUnsavedChanges) setState(() => _hasUnsavedChanges = true);
       _debouncedSave();
     });
+  }
+
+  Future<void> _loadChapters() async {
+    setState(() => _isLoadingChapters = true);
+    try {
+      final chapters = await DatabaseService.getChapters(widget.book.id);
+      if (mounted) {
+        setState(() {
+          _chapterList = chapters;
+          _isLoadingChapters = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) setState(() => _isLoadingChapters = false);
+    }
   }
 
   @override
@@ -197,6 +216,27 @@ class _AdventureEditorScreenState extends State<AdventureEditorScreen> {
                             if (!_isDistractionFree)
                               const SizedBox(height: kToolbarHeight + 16),
 
+                            // Floating Quill Toolbar
+                            if (currentMode == EditorMode.edit &&
+                                !_isDistractionFree)
+                              Padding(
+                                padding: const EdgeInsets.fromLTRB(
+                                  24,
+                                  8,
+                                  24,
+                                  8,
+                                ),
+                                child: GlassContainer(
+                                  borderRadius: BorderRadius.circular(12),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 8,
+                                  ),
+                                  child: quill.QuillSimpleToolbar(
+                                    controller: _quillController,
+                                  ),
+                                ),
+                              ),
+
                             // Tab Bar (Custom Glass Design)
                             if (!_isDistractionFree)
                               Padding(
@@ -241,8 +281,7 @@ class _AdventureEditorScreenState extends State<AdventureEditorScreen> {
                             // Tab Views
                             Expanded(
                               child: TabBarView(
-                                physics:
-                                    const NeverScrollableScrollPhysics(), // Prevent swipe
+                                physics: const NeverScrollableScrollPhysics(),
                                 children: [
                                   // 1. Write Tab
                                   Container(
@@ -259,11 +298,11 @@ class _AdventureEditorScreenState extends State<AdventureEditorScreen> {
                                           ? BorderRadius.zero
                                           : BorderRadius.circular(24),
                                       opacity: _isDistractionFree ? 0 : 0.05,
-                                      child: _buildEditor(), // Existing editor
+                                      child: _buildEditor(),
                                     ),
                                   ),
 
-                                  // 2. Outline Tab (Placeholder for now)
+                                  // 2. Outline Tab
                                   Container(
                                     margin: const EdgeInsets.fromLTRB(
                                       16,
@@ -274,11 +313,45 @@ class _AdventureEditorScreenState extends State<AdventureEditorScreen> {
                                     child: GlassContainer(
                                       borderRadius: BorderRadius.circular(24),
                                       opacity: 0.05,
-                                      child: const Center(
-                                        child: Text(
-                                          "Outline View (Coming Soon)",
-                                        ),
-                                      ),
+                                      child: _isLoadingChapters
+                                          ? const Center(
+                                              child:
+                                                  CircularProgressIndicator(),
+                                            )
+                                          : _chapterList.isEmpty
+                                          ? const Center(
+                                              child: Text("No chapters found"),
+                                            )
+                                          : ListView.builder(
+                                              itemCount: _chapterList.length,
+                                              itemBuilder: (context, index) {
+                                                final ch = _chapterList[index];
+                                                return ListTile(
+                                                  leading: const Icon(
+                                                    Icons.menu_book,
+                                                  ),
+                                                  title: Text(ch.title),
+                                                  selected:
+                                                      ch.id == _chapter.id,
+                                                  onTap: () async {
+                                                    if (ch.id == _chapter.id)
+                                                      return;
+
+                                                    // Auto-save current chapter before switching
+                                                    await _saveChapter();
+
+                                                    if (mounted) {
+                                                      setState(() {
+                                                        _chapter = ch;
+                                                        _titleController.text =
+                                                            ch.title;
+                                                      });
+                                                      _initQuillController();
+                                                    }
+                                                  },
+                                                );
+                                              },
+                                            ),
                                     ),
                                   ),
 
@@ -324,48 +397,50 @@ class _AdventureEditorScreenState extends State<AdventureEditorScreen> {
 
                         // Integrated Action Bar (Floating)
                         Positioned(
-                          top: _isDistractionFree
-                              ? (MediaQuery.of(context).padding.top + 16)
-                              : (MediaQuery.of(context).padding.top +
-                                    kToolbarHeight +
-                                    16),
-                          right: 16,
-                          child: IntegratedActionBar(
-                            currentMode: _isDistractionFree
-                                ? EditorMode.write
-                                : EditorMode.edit,
-                            isNotesOpen: _showNotes,
-                            isToolbarOpen: !_isToolbarCollapsed,
-                            isDistractionFree: _isDistractionFree,
-                            hasUnsavedChanges: _hasUnsavedChanges,
-                            onShowOutline: () =>
-                                setState(() => _showChapters = !_showChapters),
-                            onInfoPressed: () => setState(
-                              () => _showMetadataPanel = !_showMetadataPanel,
-                            ),
-                            // ... (keeping existing logic for onModeChanged)
-                            onModeChanged: (mode) {
-                              if (mode == EditorMode.write) {
+                          bottom: 24,
+                          left: 0,
+                          right: 0,
+                          child: Center(
+                            child: IntegratedActionBar(
+                              currentMode: currentMode,
+                              isDistractionFree: _isDistractionFree,
+                              isNotesOpen: _showNotes,
+                              hasUnsavedChanges: _hasUnsavedChanges,
+                              onModeChanged: (mode) {
+                                setState(() {
+                                  currentMode = mode;
+                                  if (mode == EditorMode.write) {
+                                    _isDistractionFree = true;
+                                  } else if (mode == EditorMode.edit) {
+                                    _isDistractionFree = false;
+                                  } else if (mode == EditorMode.view) {
+                                    _isDistractionFree = false;
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (context) =>
+                                            DnDExportPreviewScreen(
+                                              book: widget.book,
+                                            ),
+                                      ),
+                                    );
+                                  } else if (mode == EditorMode.notes) {
+                                    _showNotes = !_showNotes;
+                                  } else if (mode == EditorMode.share) {
+                                    _showExportDialog();
+                                  }
+                                });
+                              },
+                              onInfoPressed: () {
                                 setState(
                                   () =>
-                                      _isDistractionFree = !_isDistractionFree,
+                                      _showMetadataPanel = !_showMetadataPanel,
                                 );
-                              } else if (mode == EditorMode.notes) {
-                                setState(() => _showNotes = !_showNotes);
-                              } else if (mode == EditorMode.view) {
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (context) =>
-                                        DnDExportPreviewScreen(
-                                          book: widget.book,
-                                        ),
-                                  ),
-                                );
-                              } else if (mode == EditorMode.share) {
-                                _showExportDialog();
-                              }
-                            },
+                              },
+                              onShowOutline: () {
+                                setState(() => _showChapters = !_showChapters);
+                              },
+                            ),
                           ),
                         ),
                       ],
@@ -383,11 +458,48 @@ class _AdventureEditorScreenState extends State<AdventureEditorScreen> {
                           bottomLeft: Radius.circular(24),
                         ),
                         opacity: 0.1,
-                        child: Center(
-                          child: Text(
-                            "Adventure Metadata\n(Coming Soon)",
-                            textAlign: TextAlign.center,
-                            style: TextStyle(color: Color(0xFFD7CCC8)),
+                        child: SingleChildScrollView(
+                          padding: const EdgeInsets.all(24),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                "Adventure Metadata",
+                                style: Theme.of(context).textTheme.titleLarge
+                                    ?.copyWith(
+                                      color: Theme.of(
+                                        context,
+                                      ).colorScheme.primary,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                              ),
+                              const SizedBox(height: 16),
+                              _buildMetadataItem("Title", widget.book.title),
+                              _buildMetadataItem("Author", widget.book.author),
+                              _buildMetadataItem(
+                                "Created",
+                                widget.book.createdAt.toString(),
+                              ),
+                              _buildMetadataItem(
+                                "Last Modified",
+                                widget.book.updatedAt.toString(),
+                              ),
+                              const SizedBox(height: 24),
+                              Text(
+                                "Word Count",
+                                style: TextStyle(
+                                  color: Theme.of(
+                                    context,
+                                  ).colorScheme.onSurface.withOpacity(0.6),
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              Text(
+                                "${_quillController.document.length} characters",
+                                style: const TextStyle(fontSize: 18),
+                              ),
+                            ],
                           ),
                         ),
                       ),
@@ -609,6 +721,30 @@ class _AdventureEditorScreenState extends State<AdventureEditorScreen> {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildMetadataItem(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label.toUpperCase(),
+            style: TextStyle(
+              color: Theme.of(
+                context,
+              ).colorScheme.primary.withValues(alpha: 0.6),
+              fontSize: 10,
+              fontWeight: FontWeight.bold,
+              letterSpacing: 1.2,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(value, style: const TextStyle(fontSize: 16)),
+        ],
       ),
     );
   }

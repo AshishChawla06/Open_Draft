@@ -104,8 +104,9 @@ class ChaptersSidebar extends StatelessWidget {
                           updatedAt: DateTime.now(),
                         );
                         await DatabaseService.saveChapter(book.id, newChapter);
-                        if (context.mounted)
+                        if (context.mounted) {
                           _navigateToEditor(context, newChapter);
+                        }
                       },
                       icon: const Icon(Icons.add),
                       label: Text(

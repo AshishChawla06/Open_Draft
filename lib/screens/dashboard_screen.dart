@@ -1192,8 +1192,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Widget _buildLineChart() {
-    if (_dailyStats.isEmpty)
+    if (_dailyStats.isEmpty) {
       return const Center(child: Text('No writing data yet'));
+    }
 
     final sortedDates = _dailyStats.keys.toList()..sort();
     final spots = <FlSpot>[];

@@ -20,6 +20,70 @@ class _NpcsTabState extends State<NpcsTab> {
   List<Npc> _npcs = [];
   bool _isLoading = true;
 
+  final List<String> _races = [
+    'Human',
+    'Elf',
+    'Dwarf',
+    'Halfling',
+    'Gnome',
+    'Half-Orc',
+    'Half-Elf',
+    'Tiefling',
+    'Dragonborn',
+  ];
+  final List<String> _classes = [
+    'Barbarian',
+    'Bard',
+    'Cleric',
+    'Druid',
+    'Fighter',
+    'Monk',
+    'Paladin',
+    'Ranger',
+    'Rogue',
+    'Sorcerer',
+    'Warlock',
+    'Wizard',
+  ];
+  final List<String> _roles = [
+    'Quest Giver',
+    'Merchant',
+    'Villain',
+    'Ally',
+    'Neutral',
+    'Messenger',
+  ];
+  final List<String> _sizes = [
+    'Tiny',
+    'Small',
+    'Medium',
+    'Large',
+    'Huge',
+    'Gargantuan',
+  ];
+  final List<String> _types = [
+    'Humanoid',
+    'Beast',
+    'Undead',
+    'Construct',
+    'Dragon',
+    'Elemental',
+    'Fiend',
+    'Fey',
+  ];
+  final List<String> _alignments = [
+    'Lawful Good',
+    'Neutral Good',
+    'Chaotic Good',
+    'Lawful Neutral',
+    'True Neutral',
+    'Chaotic Neutral',
+    'Lawful Evil',
+    'Neutral Evil',
+    'Chaotic Evil',
+    'Unaligned',
+  ];
+
   @override
   void initState() {
     super.initState();
@@ -43,6 +107,11 @@ class _NpcsTabState extends State<NpcsTab> {
     final npc = Npc.empty(widget.book.id);
     await DatabaseService.saveDndNpc(npc);
     await _loadNpcs();
+    // Find the newly created npc in our list (it will have the generated ID)
+    final savedNpc = _npcs.firstWhere((n) => n.id == npc.id, orElse: () => npc);
+    if (mounted) {
+      _editNpc(savedNpc);
+    }
   }
 
   @override
@@ -95,15 +164,13 @@ class _NpcsTabState extends State<NpcsTab> {
           Icon(
             Icons.people_outline,
             size: 64,
-            color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.2),
+            color: Theme.of(context).colorScheme.primary.withOpacity(0.2),
           ),
           const SizedBox(height: 16),
           Text(
             'No NPCs found in this adventure.',
             style: TextStyle(
-              color: Theme.of(
-                context,
-              ).colorScheme.onSurface.withValues(alpha: 0.5),
+              color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5),
             ),
           ),
           TextButton(
@@ -128,7 +195,7 @@ class _NpcsTabState extends State<NpcsTab> {
           leading: CircleAvatar(
             backgroundColor: Theme.of(
               context,
-            ).colorScheme.primary.withValues(alpha: 0.1),
+            ).colorScheme.primary.withOpacity(0.1),
             child: Text(npc.name.isNotEmpty ? npc.name[0].toUpperCase() : '?'),
           ),
           title: Text(
@@ -196,18 +263,155 @@ class _NpcsTabState extends State<NpcsTab> {
                   controller: nameController,
                   decoration: const InputDecoration(labelText: 'Name'),
                 ),
-                TextField(
-                  controller: raceController,
+                DropdownButtonFormField<String>(
+                  value: _races.contains(raceController.text)
+                      ? raceController.text
+                      : _races[0],
                   decoration: const InputDecoration(labelText: 'Race'),
+                  items: _races
+                      .map((r) => DropdownMenuItem(value: r, child: Text(r)))
+                      .toList(),
+                  onChanged: (val) =>
+                      setDialogState(() => raceController.text = val!),
                 ),
-                TextField(
-                  controller: classController,
+                DropdownButtonFormField<String>(
+                  value: _classes.contains(classController.text)
+                      ? classController.text
+                      : _classes[0],
                   decoration: const InputDecoration(labelText: 'Class'),
+                  items: _classes
+                      .map((c) => DropdownMenuItem(value: c, child: Text(c)))
+                      .toList(),
+                  onChanged: (val) =>
+                      setDialogState(() => classController.text = val!),
                 ),
-                TextField(
-                  controller: roleController,
+                DropdownButtonFormField<String>(
+                  value: _roles.contains(roleController.text)
+                      ? roleController.text
+                      : _roles[0],
                   decoration: const InputDecoration(labelText: 'Role'),
+                  items: _roles
+                      .map((r) => DropdownMenuItem(value: r, child: Text(r)))
+                      .toList(),
+                  onChanged: (val) =>
+                      setDialogState(() => roleController.text = val!),
                 ),
+                Row(
+                  children: [
+                    Expanded(
+                      child: DropdownButtonFormField<String>(
+                        value: _sizes.contains(npc.size) ? npc.size : _sizes[2],
+                        decoration: const InputDecoration(labelText: 'Size'),
+                        items: _sizes
+                            .map(
+                              (s) => DropdownMenuItem(value: s, child: Text(s)),
+                            )
+                            .toList(),
+                        onChanged: (val) =>
+                            setDialogState(() => npc = npc.copyWith(size: val)),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: DropdownButtonFormField<String>(
+                        value: _types.contains(npc.type) ? npc.type : _types[0],
+                        decoration: const InputDecoration(labelText: 'Type'),
+                        items: _types
+                            .map(
+                              (t) => DropdownMenuItem(value: t, child: Text(t)),
+                            )
+                            .toList(),
+                        onChanged: (val) =>
+                            setDialogState(() => npc = npc.copyWith(type: val)),
+                      ),
+                    ),
+                  ],
+                ),
+                DropdownButtonFormField<String>(
+                  value: _alignments.contains(npc.alignment)
+                      ? npc.alignment
+                      : _alignments[4],
+                  decoration: const InputDecoration(labelText: 'Alignment'),
+                  items: _alignments
+                      .map((a) => DropdownMenuItem(value: a, child: Text(a)))
+                      .toList(),
+                  onChanged: (val) =>
+                      setDialogState(() => npc = npc.copyWith(alignment: val)),
+                ),
+                const SizedBox(height: 16),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: () {
+                          setDialogState(() {
+                            raceController.text = (_races..shuffle()).first;
+                            classController.text = (_classes..shuffle()).first;
+                            roleController.text = (_roles..shuffle()).first;
+                            npc = npc.copyWith(
+                              size: (_sizes..shuffle()).first,
+                              type: (_types..shuffle()).first,
+                              alignment: (_alignments..shuffle()).first,
+                            );
+                            abilityScores = {
+                              'STR': 8 + (DateTime.now().millisecond % 10),
+                              'DEX': 8 + (DateTime.now().millisecond % 10),
+                              'CON': 8 + (DateTime.now().microsecond % 10),
+                              'INT': 8 + (DateTime.now().millisecond % 10),
+                              'WIS': 8 + (DateTime.now().microsecond % 10),
+                              'CHA': 8 + (DateTime.now().millisecond % 10),
+                            };
+                            armorClass =
+                                10 + (abilityScores!['DEX']! - 10) ~/ 2;
+                            hitPoints = 10 + (abilityScores!['CON']! - 10) ~/ 2;
+                          });
+                        },
+                        icon: const Icon(Icons.casino),
+                        label: const Text("Randomize"),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: () {
+                          bool hasName = nameController.text.isNotEmpty;
+                          bool hasRace = raceController.text.isNotEmpty;
+
+                          final List<String> errors = [];
+                          if (!hasName) errors.add("Missing Name");
+                          if (!hasRace) errors.add("Missing Race");
+
+                          showDialog(
+                            context: context,
+                            builder: (context) => AlertDialog(
+                              title: Text(
+                                errors.isEmpty
+                                    ? 'Validation Success'
+                                    : 'Validation Errors',
+                              ),
+                              content: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: errors.isEmpty
+                                    ? [const Text('This NPC is 5e compatible!')]
+                                    : errors.map((e) => Text('• $e')).toList(),
+                              ),
+                              actions: [
+                                TextButton(
+                                  onPressed: () => Navigator.pop(context),
+                                  child: const Text('OK'),
+                                ),
+                              ],
+                            ),
+                          );
+                        },
+                        icon: const Icon(Icons.check_circle_outline),
+                        label: const Text("Validate 5e"),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
                 TextField(
                   controller: backstoryController,
                   decoration: const InputDecoration(labelText: 'Backstory'),
@@ -229,6 +433,10 @@ class _NpcsTabState extends State<NpcsTab> {
                               npc.hitPoints?.toString() ?? '10',
                             ),
                             'abilityScores': npc.abilityScores,
+                            'size': npc.size,
+                            'type': npc.type,
+                            'alignment': npc.alignment,
+                            'speed': npc.speed,
                           },
                           onSave: (val) => Navigator.pop(context, val),
                         ),
@@ -242,6 +450,12 @@ class _NpcsTabState extends State<NpcsTab> {
                         hitPoints = data['hp'];
                         abilityScores = Map<String, int>.from(
                           data['abilityScores'] ?? {},
+                        );
+                        npc = npc.copyWith(
+                          size: data['size'],
+                          type: data['type'],
+                          alignment: data['alignment'],
+                          speed: data['speed'],
                         );
                         includeStatblock = true;
                       });
@@ -288,6 +502,7 @@ class _NpcsTabState extends State<NpcsTab> {
                     armorClass: armorClass,
                     hitPoints: hitPoints,
                     abilityScores: abilityScores,
+                    speed: npc.speed,
                     redactions: isSecret
                         ? [
                             Redaction(

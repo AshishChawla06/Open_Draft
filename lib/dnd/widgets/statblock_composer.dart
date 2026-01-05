@@ -16,15 +16,12 @@ class _StatblockComposerState extends State<StatblockComposer> {
 
   // Basic Info
   late TextEditingController _nameController;
-  late TextEditingController _sizeTypeController;
-  late TextEditingController _alignmentController;
 
   // Stats
   late TextEditingController _acController;
   late TextEditingController _hpController;
   late TextEditingController _speedController;
 
-  // Ability Scores
   final Map<String, int> _abilityScores = {
     'STR': 10,
     'DEX': 10,
@@ -34,17 +31,46 @@ class _StatblockComposerState extends State<StatblockComposer> {
     'CHA': 10,
   };
 
+  final List<String> _sizes = [
+    'Tiny',
+    'Small',
+    'Medium',
+    'Large',
+    'Huge',
+    'Gargantuan',
+  ];
+  final List<String> _types = [
+    'Humanoid',
+    'Beast',
+    'Undead',
+    'Construct',
+    'Dragon',
+    'Elemental',
+    'Fiend',
+    'Fey',
+  ];
+  final List<String> _alignments = [
+    'Lawful Good',
+    'Neutral Good',
+    'Chaotic Good',
+    'Lawful Neutral',
+    'True Neutral',
+    'Chaotic Neutral',
+    'Lawful Evil',
+    'Neutral Evil',
+    'Chaotic Evil',
+    'Unaligned',
+  ];
+
+  late String _selectedSize;
+  late String _selectedType;
+  late String _selectedAlignment;
+
   @override
   void initState() {
     super.initState();
     _nameController = TextEditingController(
       text: widget.initialData?['name'] ?? 'New Monster',
-    );
-    _sizeTypeController = TextEditingController(
-      text: widget.initialData?['sizeType'] ?? 'Medium humanoid',
-    );
-    _alignmentController = TextEditingController(
-      text: widget.initialData?['alignment'] ?? 'Unspecified',
     );
     _acController = TextEditingController(
       text: widget.initialData?['ac']?.toString() ?? '10',
@@ -61,80 +87,220 @@ class _StatblockComposerState extends State<StatblockComposer> {
         Map<String, int>.from(widget.initialData!['abilityScores']),
       );
     }
+
+    _selectedSize = widget.initialData?['size'] ?? 'Medium';
+    _selectedType = widget.initialData?['type'] ?? 'Humanoid';
+    _selectedAlignment = widget.initialData?['alignment'] ?? 'True Neutral';
+  }
+
+  void _randomizeStats() {
+    setState(() {
+      _abilityScores['STR'] = 8 + (DateTime.now().millisecond % 10);
+      _abilityScores['DEX'] = 8 + (DateTime.now().millisecond % 10);
+      _abilityScores['CON'] = 8 + (DateTime.now().microsecond % 10);
+      _abilityScores['INT'] = 8 + (DateTime.now().millisecond % 10);
+      _abilityScores['WIS'] = 8 + (DateTime.now().microsecond % 10);
+      _abilityScores['CHA'] = 8 + (DateTime.now().millisecond % 10);
+
+      _selectedSize = (_sizes..shuffle()).first;
+      _selectedType = (_types..shuffle()).first;
+      _selectedAlignment = (_alignments..shuffle()).first;
+
+      final dexMod = (_abilityScores['DEX']! - 10) ~/ 2;
+      final conMod = (_abilityScores['CON']! - 10) ~/ 2;
+
+      _acController.text = (10 + dexMod).toString();
+      _hpController.text = (10 + conMod).toString();
+    });
+  }
+
+  void _validate5e() {
+    bool hasName = _nameController.text.isNotEmpty;
+    bool hasAC = _acController.text.isNotEmpty;
+    bool hasHP = _hpController.text.isNotEmpty;
+    bool hasStats = _abilityScores.values.every((v) => v > 0);
+
+    final List<String> errors = [];
+    if (!hasName) errors.add("Missing Name");
+    if (!hasAC) errors.add("Missing Armor Class");
+    if (!hasHP) errors.add("Missing Hit Points");
+    if (!hasStats) errors.add("Ability scores must be greater than 0");
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(
+          errors.isEmpty ? 'Validation Success' : 'Validation Errors',
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: errors.isEmpty
+              ? [const Text('This statblock is 5e compatible!')]
+              : errors.map((e) => Text('• $e')).toList(),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('OK'),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: [
-        Expanded(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(16),
-            child: Form(
-              key: _formKey,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _buildSectionHeader('Basic Information'),
-                  _buildTextField(_nameController, 'Name'),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: _buildTextField(
-                          _sizeTypeController,
-                          'Size & Type (e.g. Medium undead)',
+    return Scaffold(
+      backgroundColor: Colors.transparent,
+      appBar: AppBar(
+        title: const Text('Customize Statblock'),
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.close),
+          onPressed: () => Navigator.pop(context),
+        ),
+      ),
+      body: Column(
+        children: [
+          Expanded(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(16),
+              child: Form(
+                key: _formKey,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildSectionHeader('Basic Information'),
+                    _buildTextField(_nameController, 'Name'),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: DropdownButtonFormField<String>(
+                            value: _sizes.contains(_selectedSize)
+                                ? _selectedSize
+                                : _sizes[2],
+                            decoration: const InputDecoration(
+                              labelText: 'Size',
+                            ),
+                            items: _sizes
+                                .map(
+                                  (s) => DropdownMenuItem(
+                                    value: s,
+                                    child: Text(s),
+                                  ),
+                                )
+                                .toList(),
+                            onChanged: (val) =>
+                                setState(() => _selectedSize = val!),
+                          ),
                         ),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: _buildTextField(
-                          _alignmentController,
-                          'Alignment',
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: DropdownButtonFormField<String>(
+                            value: _types.contains(_selectedType)
+                                ? _selectedType
+                                : _types[0],
+                            decoration: const InputDecoration(
+                              labelText: 'Type',
+                            ),
+                            items: _types
+                                .map(
+                                  (t) => DropdownMenuItem(
+                                    value: t,
+                                    child: Text(t),
+                                  ),
+                                )
+                                .toList(),
+                            onChanged: (val) =>
+                                setState(() => _selectedType = val!),
+                          ),
                         ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    DropdownButtonFormField<String>(
+                      value: _alignments.contains(_selectedAlignment)
+                          ? _selectedAlignment
+                          : _alignments[4],
+                      decoration: const InputDecoration(labelText: 'Alignment'),
+                      items: _alignments
+                          .map(
+                            (a) => DropdownMenuItem(value: a, child: Text(a)),
+                          )
+                          .toList(),
+                      onChanged: (val) =>
+                          setState(() => _selectedAlignment = val!),
+                    ),
+                    const SizedBox(height: 16),
 
-                  _buildSectionHeader('Combat Stats'),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: _buildTextField(
-                          _acController,
-                          'AC',
-                          isNumeric: true,
+                    _buildSectionHeader('Combat Stats'),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _buildTextField(
+                            _acController,
+                            'AC',
+                            isNumeric: true,
+                          ),
                         ),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: _buildTextField(
-                          _hpController,
-                          'HP',
-                          isNumeric: true,
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: _buildTextField(
+                            _hpController,
+                            'HP',
+                            isNumeric: true,
+                          ),
                         ),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: _buildTextField(_speedController, 'Speed'),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: _buildTextField(_speedController, 'Speed'),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
 
-                  _buildSectionHeader('Ability Scores'),
-                  _buildAbilityScoreGrid(),
-                  const SizedBox(height: 24),
+                    _buildSectionHeader('Ability Scores'),
+                    _buildAbilityScoreGrid(),
+                    const SizedBox(height: 24),
 
-                  _buildSectionHeader('Preview (Draft)'),
-                  _buildStatblockPreview(),
-                ],
+                    _buildSectionHeader('Preview (Draft)'),
+                    _buildStatblockPreview(),
+                  ],
+                ),
               ),
             ),
           ),
-        ),
-        _buildActionButtons(),
-      ],
+          _buildToolButtons(),
+          _buildActionButtons(),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildToolButtons() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Row(
+        children: [
+          Expanded(
+            child: OutlinedButton.icon(
+              onPressed: _randomizeStats,
+              icon: const Icon(Icons.casino),
+              label: const Text('Randomize Stats'),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: OutlinedButton.icon(
+              onPressed: _validate5e,
+              icon: const Icon(Icons.check_circle_outline),
+              label: const Text('Validate 5e'),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -230,9 +396,9 @@ class _StatblockComposerState extends State<StatblockComposer> {
   Widget _buildStatblockPreview() {
     return GlassContainer(
       width: double.infinity,
-      color: const Color(0xFFFBEFD5), // Parchment color
-      borderRadius: BorderRadius.circular(4),
-      padding: const EdgeInsets.all(12),
+      color: Colors.black.withOpacity(0.3),
+      borderRadius: BorderRadius.circular(8),
+      padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -240,24 +406,24 @@ class _StatblockComposerState extends State<StatblockComposer> {
             _nameController.text,
             style: const TextStyle(
               fontFamily: 'serif',
-              fontSize: 20,
+              fontSize: 22,
               fontWeight: FontWeight.bold,
-              color: Color(0xFF7A200D),
+              color: Color(0xFFFFFFFF),
             ),
           ),
           Text(
-            '${_sizeTypeController.text}, ${_alignmentController.text}',
+            '$_selectedSize $_selectedType, $_selectedAlignment',
             style: const TextStyle(
               fontStyle: FontStyle.italic,
-              fontSize: 13,
-              color: Colors.black87,
+              fontSize: 14,
+              color: Color(0xFFFFFFFF),
             ),
           ),
-          const Divider(color: Color(0xFF7A200D), thickness: 2),
+          const Divider(color: Colors.white24, thickness: 2, height: 24),
           _buildPreviewRow('Armor Class', _acController.text),
           _buildPreviewRow('Hit Points', _hpController.text),
           _buildPreviewRow('Speed', _speedController.text),
-          const Divider(color: Color(0xFF7A200D), thickness: 1),
+          const Divider(color: Colors.white24, thickness: 1, height: 24),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: _abilityScores.keys.map((stat) {
@@ -267,23 +433,22 @@ class _StatblockComposerState extends State<StatblockComposer> {
                     stat,
                     style: const TextStyle(
                       fontWeight: FontWeight.bold,
-                      fontSize: 10,
-                      color: Color(0xFF7A200D),
+                      fontSize: 12,
+                      color: Color(0xFFFFFFFF),
                     ),
                   ),
                   Text(
                     '${_abilityScores[stat]} (${_getModifierString(_abilityScores[stat]!)})',
                     style: const TextStyle(
-                      fontSize: 10,
-                      color: Color(0xFF7A200D),
+                      fontSize: 12,
+                      color: Color(0xFFEEEEEE),
                     ),
                   ),
                 ],
               );
             }).toList(),
           ),
-          const Divider(color: Color(0xFF7A200D), thickness: 1),
-          // Actions would go here
+          const Divider(color: Colors.white24, thickness: 1, height: 24),
         ],
       ),
     );
@@ -294,13 +459,16 @@ class _StatblockComposerState extends State<StatblockComposer> {
       padding: const EdgeInsets.symmetric(vertical: 2),
       child: RichText(
         text: TextSpan(
-          style: const TextStyle(color: Color(0xFF7A200D), fontSize: 13),
+          style: const TextStyle(color: Color(0xFFFFFFFF), fontSize: 14),
           children: [
             TextSpan(
               text: '$label ',
               style: const TextStyle(fontWeight: FontWeight.bold),
             ),
-            TextSpan(text: value),
+            TextSpan(
+              text: value,
+              style: const TextStyle(color: Color(0xFFEEEEEE)),
+            ),
           ],
         ),
       ),
@@ -325,8 +493,9 @@ class _StatblockComposerState extends State<StatblockComposer> {
                 if (_formKey.currentState!.validate()) {
                   widget.onSave({
                     'name': _nameController.text,
-                    'sizeType': _sizeTypeController.text,
-                    'alignment': _alignmentController.text,
+                    'size': _selectedSize,
+                    'type': _selectedType,
+                    'alignment': _selectedAlignment,
                     'ac': int.tryParse(_acController.text) ?? 10,
                     'hp': int.tryParse(_hpController.text) ?? 10,
                     'speed': _speedController.text,

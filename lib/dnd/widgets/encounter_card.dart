@@ -1,15 +1,18 @@
 import 'package:flutter/material.dart';
 import '../../widgets/glass_container.dart';
 import '../models/encounter.dart';
+import 'package:flutter/foundation.dart';
 
 class EncounterCard extends StatelessWidget {
   final Encounter encounter;
   final VoidCallback onTap;
+  final VoidCallback? onDelete;
 
   const EncounterCard({
     super.key,
     required this.encounter,
     required this.onTap,
+    this.onDelete,
   });
 
   @override
@@ -46,6 +49,28 @@ class EncounterCard extends StatelessWidget {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
+                  if (encounter.monsters.isNotEmpty &&
+                      encounter.monsters.first.monsterSnapshot?.imgUrl != null)
+                    Padding(
+                      padding: const EdgeInsets.only(right: 12),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(8),
+                        child: Image.network(
+                          kIsWeb
+                              ? 'https://corsproxy.io/?${Uri.encodeComponent(encounter.monsters.first.monsterSnapshot!.imgUrl!)}'
+                              : encounter
+                                    .monsters
+                                    .first
+                                    .monsterSnapshot!
+                                    .imgUrl!,
+                          width: 48,
+                          height: 48,
+                          fit: BoxFit.cover,
+                          errorBuilder: (context, error, stackTrace) =>
+                              const Icon(Icons.pets, color: Colors.white24),
+                        ),
+                      ),
+                    ),
                   Expanded(
                     child: Text(
                       encounter.title,
@@ -76,6 +101,16 @@ class EncounterCard extends StatelessWidget {
                       ),
                     ),
                   ),
+                  if (onDelete != null)
+                    IconButton(
+                      icon: const Icon(
+                        Icons.delete_outline,
+                        color: Colors.redAccent,
+                        size: 20,
+                      ),
+                      onPressed: onDelete,
+                      tooltip: "Delete Encounter",
+                    ),
                 ],
               ),
               const SizedBox(height: 8),

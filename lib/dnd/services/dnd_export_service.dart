@@ -703,12 +703,14 @@ class DnDExportService {
         buffer.writeln(
           '<p class="subtitle">${npc.race} ${npc.characterClass} | ${npc.alignment}</p>',
         );
-        if (npc.role.isNotEmpty)
+        if (npc.role.isNotEmpty) {
           buffer.writeln('<p><strong>Role:</strong> ${npc.role}</p>');
-        if (npc.appearance.isNotEmpty)
+        }
+        if (npc.appearance.isNotEmpty) {
           buffer.writeln(
             '<p><strong>Appearance:</strong> ${npc.appearance}</p>',
           );
+        }
         if (mode == DnDExportMode.gm && npc.backstory.isNotEmpty) {
           buffer.writeln(
             '<p class="gm-notes"><strong>Backstory:</strong> ${npc.backstory}</p>',
@@ -734,10 +736,11 @@ class DnDExportService {
           '<p class="subtitle">${item.rarity} ${item.type}${item.requiresAttunement ? " (Requires Attunement)" : ""}</p>',
         );
         buffer.writeln('<p>${item.effects}</p>');
-        if (item.mechanics.isNotEmpty)
+        if (item.mechanics.isNotEmpty) {
           buffer.writeln(
             '<p><strong>Mechanics:</strong> ${item.mechanics}</p>',
           );
+        }
         if (mode == DnDExportMode.gm && item.lore.isNotEmpty) {
           buffer.writeln(
             '<p class="gm-notes"><strong>Lore:</strong> ${item.lore}</p>',

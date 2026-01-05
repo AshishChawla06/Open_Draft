@@ -45,6 +45,13 @@ class _LocationsTabState extends State<LocationsTab> {
     final loc = Location.empty(widget.book.id);
     await DatabaseService.saveDndLocation(loc);
     await _loadLocations();
+    final savedLoc = _locations.firstWhere(
+      (l) => l.id == loc.id,
+      orElse: () => loc,
+    );
+    if (mounted) {
+      _editLocation(savedLoc);
+    }
   }
 
   @override

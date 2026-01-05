@@ -19,6 +19,7 @@ class MagicItem {
 
   // Mechanics
   final String mechanics; // Game mechanics, bonuses, etc.
+  final Map<String, String> customProperties; // Weight, Charges, etc.
 
   // Secrets
   final List<Redaction>? redactions;
@@ -37,6 +38,7 @@ class MagicItem {
     this.effects = '',
     this.hiddenPowers = '',
     this.mechanics = '',
+    this.customProperties = const {},
     this.redactions,
     DateTime? createdAt,
     DateTime? updatedAt,
@@ -52,6 +54,7 @@ class MagicItem {
     String? effects,
     String? hiddenPowers,
     String? mechanics,
+    Map<String, String>? customProperties,
     List<Redaction>? redactions,
   }) {
     return MagicItem(
@@ -65,6 +68,7 @@ class MagicItem {
       effects: effects ?? this.effects,
       hiddenPowers: hiddenPowers ?? this.hiddenPowers,
       mechanics: mechanics ?? this.mechanics,
+      customProperties: customProperties ?? this.customProperties,
       redactions: redactions ?? this.redactions,
       createdAt: createdAt,
       updatedAt: DateTime.now(),
@@ -83,6 +87,7 @@ class MagicItem {
       'effects': effects,
       'hiddenPowers': hiddenPowers,
       'mechanics': mechanics,
+      'customProperties': customProperties,
       'redactions': redactions?.map((r) => r.toJson()).toList(),
       'createdAt': createdAt.toIso8601String(),
       'updatedAt': updatedAt.toIso8601String(),
@@ -101,6 +106,9 @@ class MagicItem {
       effects: json['effects'] ?? '',
       hiddenPowers: json['hiddenPowers'] ?? '',
       mechanics: json['mechanics'] ?? '',
+      customProperties: json['customProperties'] != null
+          ? Map<String, String>.from(json['customProperties'])
+          : const {},
       redactions: (json['redactions'] as List?)
           ?.map((r) => Redaction.fromJson(r))
           .toList(),

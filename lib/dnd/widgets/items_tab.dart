@@ -19,6 +19,25 @@ class _ItemsTabState extends State<ItemsTab> {
   List<MagicItem> _items = [];
   bool _isLoading = true;
 
+  final List<String> _rarities = [
+    'Common',
+    'Uncommon',
+    'Rare',
+    'Very Rare',
+    'Legendary',
+    'Artifact',
+  ];
+  final List<String> _types = [
+    'Weapon',
+    'Armor',
+    'Potion',
+    'Ring',
+    'Wondrous Item',
+    'Scroll',
+    'Staff',
+    'Wand',
+  ];
+
   @override
   void initState() {
     super.initState();
@@ -42,6 +61,13 @@ class _ItemsTabState extends State<ItemsTab> {
     final item = MagicItem.empty(widget.book.id);
     await DatabaseService.saveDndMagicItem(item);
     await _loadItems();
+    final savedItem = _items.firstWhere(
+      (i) => i.id == item.id,
+      orElse: () => item,
+    );
+    if (mounted) {
+      _editItem(savedItem);
+    }
   }
 
   @override
@@ -186,18 +212,106 @@ class _ItemsTabState extends State<ItemsTab> {
                   controller: nameController,
                   decoration: const InputDecoration(labelText: 'Name'),
                 ),
-                TextField(
-                  controller: rarityController,
+                DropdownButtonFormField<String>(
+                  value: _rarities.contains(rarityController.text)
+                      ? rarityController.text
+                      : _rarities[0],
                   decoration: const InputDecoration(labelText: 'Rarity'),
+                  items: _rarities
+                      .map((r) => DropdownMenuItem(value: r, child: Text(r)))
+                      .toList(),
+                  onChanged: (val) =>
+                      setDialogState(() => rarityController.text = val!),
                 ),
-                TextField(
-                  controller: typeController,
+                DropdownButtonFormField<String>(
+                  value: _types.contains(typeController.text)
+                      ? typeController.text
+                      : _types[0],
                   decoration: const InputDecoration(labelText: 'Type'),
+                  items: _types
+                      .map((t) => DropdownMenuItem(value: t, child: Text(t)))
+                      .toList(),
+                  onChanged: (val) =>
+                      setDialogState(() => typeController.text = val!),
                 ),
                 TextField(
                   controller: effectsController,
                   decoration: const InputDecoration(labelText: 'Effects'),
                   maxLines: 3,
+                ),
+                const SizedBox(height: 16),
+                const Text(
+                  "Custom Properties",
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
+                ...item.customProperties.entries.map(
+                  (e) => Row(
+                    children: [
+                      Expanded(child: Text("${e.key}: ${e.value}")),
+                      IconButton(
+                        icon: const Icon(Icons.delete, size: 16),
+                        onPressed: () {
+                          setDialogState(() {
+                            final newProps = Map<String, String>.from(
+                              item.customProperties,
+                            );
+                            newProps.remove(e.key);
+                            item = item.copyWith(customProperties: newProps);
+                          });
+                        },
+                      ),
+                    ],
+                  ),
+                ),
+                TextButton.icon(
+                  onPressed: () async {
+                    final keyController = TextEditingController();
+                    final valController = TextEditingController();
+                    final ok = await showDialog<bool>(
+                      context: context,
+                      builder: (context) => AlertDialog(
+                        title: const Text("Add Property"),
+                        content: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            TextField(
+                              controller: keyController,
+                              decoration: const InputDecoration(
+                                labelText: "Key (e.g. Weight)",
+                              ),
+                            ),
+                            TextField(
+                              controller: valController,
+                              decoration: const InputDecoration(
+                                labelText: "Value (e.g. 5 lbs)",
+                              ),
+                            ),
+                          ],
+                        ),
+                        actions: [
+                          TextButton(
+                            onPressed: () => Navigator.pop(context, false),
+                            child: const Text("Cancel"),
+                          ),
+                          TextButton(
+                            onPressed: () => Navigator.pop(context, true),
+                            child: const Text("Add"),
+                          ),
+                        ],
+                      ),
+                    );
+                    if (ok == true && keyController.text.isNotEmpty) {
+                      setDialogState(() {
+                        final newProps = Map<String, String>.from(
+                          item.customProperties,
+                        );
+                        newProps[keyController.text] = valController.text;
+                        item = item.copyWith(customProperties: newProps);
+                      });
+                    }
+                  },
+                  icon: const Icon(Icons.add),
+                  label: const Text("Add Property"),
                 ),
                 const SizedBox(height: 16),
                 SwitchListTile(

@@ -3,31 +3,66 @@ import 'package:http/http.dart' as http;
 import 'package:logger/logger.dart';
 import '../models/monster.dart';
 
+enum MonsterImageProvider {
+  open5e, // api.open5e.com
+  fiveETools, // 5e.tools (placeholder / direct)
+  google, // Mock/Placeholder for future
+}
+
 class DnDService {
   static final Logger _logger = Logger();
   static const String _baseUrl = 'https://api.open5e.com/monsters/';
+
+  static bool _isInitialized = false;
+  static Future<void> initialize() async {
+    if (_isInitialized) return;
+    // Simulate loading local monster database or heavy assets
+    await Future.delayed(const Duration(seconds: 1));
+    _isInitialized = true;
+  }
 
   // Simple in-memory cache to avoid rate limiting and speed up searches
   static final List<Monster> _monsterCache = [];
 
   /// Searches for monsters by name.
   /// If [query] is empty, returns cache or fetches popular/low CR monsters.
-  static Future<List<Monster>> searchMonsters(String query) async {
+  static Future<List<Monster>> searchMonsters(
+    String query, {
+    String? type,
+    String? document,
+    MonsterImageProvider imageProvider = MonsterImageProvider.open5e,
+  }) async {
+    await initialize();
     try {
-      if (query.isEmpty && _monsterCache.isNotEmpty) {
-        return _monsterCache.take(50).toList();
+      String queryParams = 'search=${Uri.encodeComponent(query)}&limit=50';
+      if (type != null && type.isNotEmpty) {
+        queryParams += '&type=${Uri.encodeComponent(type)}';
+      }
+      if (document != null && document.isNotEmpty) {
+        queryParams += '&document__slug=${Uri.encodeComponent(document)}';
       }
 
-      final url = Uri.parse(
-        '$_baseUrl?search=${Uri.encodeComponent(query)}&limit=50',
-      );
+      final url = Uri.parse('$_baseUrl?$queryParams');
       final response = await http.get(url);
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         final results = data['results'] as List<dynamic>;
 
-        final monsters = results.map((json) => Monster.fromJson(json)).toList();
+        final monsters = results.map((json) {
+          var monster = Monster.fromJson(json);
+          // Apply provider-specific image logic
+          if (imageProvider == MonsterImageProvider.fiveETools) {
+            // Mocking a 5e.tools lookup pattern for demonstration
+            final toolsUrl =
+                'https://raw.githubusercontent.com/TheGiddyLimit/homebrew/master/_img/monsters/MM/${monster.name}.png';
+            monster = monster.copyWith(
+              imgUrl: toolsUrl,
+              imageSource: '5e.tools',
+            );
+          }
+          return monster;
+        }).toList();
 
         // Update cache with new finds
         for (var monster in monsters) {

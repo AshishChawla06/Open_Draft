@@ -8,7 +8,10 @@ class Npc {
   final String race;
   final String characterClass; // To avoid conflict with Dart keyword 'class'
   final String alignment;
+  final String size; // e.g., 'Medium', 'Large'
+  final String type; // e.g., 'Humanoid', 'Beast'
   final String role; // e.g., 'Quest Giver', 'Villain', 'Ally'
+  final String speed; // e.g., '30 ft.'
 
   // Personality
   final List<String> traits;
@@ -40,7 +43,10 @@ class Npc {
     this.race = '',
     this.characterClass = '',
     this.alignment = '',
+    this.size = 'Medium',
+    this.type = 'Humanoid',
     this.role = '',
+    this.speed = '30 ft.',
     this.traits = const [],
     this.ideals = const [],
     this.bonds = const [],
@@ -63,7 +69,10 @@ class Npc {
     String? race,
     String? characterClass,
     String? alignment,
+    String? size,
+    String? type,
     String? role,
+    String? speed,
     List<String>? traits,
     List<String>? ideals,
     List<String>? bonds,
@@ -84,7 +93,10 @@ class Npc {
       race: race ?? this.race,
       characterClass: characterClass ?? this.characterClass,
       alignment: alignment ?? this.alignment,
+      size: size ?? this.size,
+      type: type ?? this.type,
       role: role ?? this.role,
+      speed: speed ?? this.speed,
       traits: traits ?? this.traits,
       ideals: ideals ?? this.ideals,
       bonds: bonds ?? this.bonds,
@@ -110,7 +122,10 @@ class Npc {
       'race': race,
       'characterClass': characterClass,
       'alignment': alignment,
+      'size': size,
+      'type': type,
       'role': role,
+      'speed': speed,
       'traits': traits,
       'ideals': ideals,
       'bonds': bonds,
@@ -136,7 +151,10 @@ class Npc {
       race: json['race'] ?? '',
       characterClass: json['characterClass'] ?? '',
       alignment: json['alignment'] ?? '',
+      size: json['size'] ?? 'Medium',
+      type: json['type'] ?? 'Humanoid',
       role: json['role'] ?? '',
+      speed: json['speed'] ?? '30 ft.',
       traits: List<String>.from(json['traits'] ?? []),
       ideals: List<String>.from(json['ideals'] ?? []),
       bonds: List<String>.from(json['bonds'] ?? []),
