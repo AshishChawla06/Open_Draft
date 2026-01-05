@@ -1,0 +1,72 @@
+name: "CodeQL"
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  schedule:
+    - cron: '0 0 * * 0'
+
+jobs:
+  analyze:
+    name: Analyze
+    runs-on: macos-latest
+
+    permissions:
+      actions: read
+      contents: read
+      security-events: write
+
+    env:
+      NO_WATCHER: true
+      CHOKIDAR_USEPOLLING: true
+      GRADLE_OPTS: "-Dorg.gradle.vfs.watch=false"
+
+    strategy:
+      fail-fast: false
+      matrix:
+        language: [ 'java-kotlin', 'swift' ]
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          path: .
+
+      - name: Install Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v4
+        with:
+          languages: ${{ matrix.language }}
+          build-mode: manual
+
+      # -----------------------------
+      # MANUAL BUILD STEPS
+      # -----------------------------
+
+      - name: Flutter pub get
+        run: flutter pub get
+
+      - name: Build Android (Java/Kotlin)
+        run: |
+          cd android
+          chmod +x gradlew
+          ./gradlew assembleDebug --no-daemon
+
+      - name: Build iOS (Swift)
+        run: |
+          cd ios
+          xcodebuild -scheme Runner -sdk iphonesimulator -configuration Debug build
+
+      # -----------------------------
+      # END MANUAL BUILD STEPS
+      # -----------------------------
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v4
