@@ -8,10 +8,6 @@ on:
   schedule:
     - cron: '0 0 * * 0'
 
-defaults:
-  run:
-    working-directory: ${{ github.workspace }}
-
 jobs:
   analyze:
     name: Analyze
@@ -53,14 +49,12 @@ jobs:
         run: flutter pub get
 
       - name: Build Android (Java/Kotlin)
-        run: |
-          cd android
-          ./gradlew assembleDebug --no-daemon
+        working-directory: android
+        run: ./gradlew assembleDebug --no-daemon
 
       - name: Build iOS (Swift)
-        run: |
-          cd ios
-          xcodebuild -scheme Runner -sdk iphonesimulator -configuration Debug build
+        working-directory: ios
+        run: xcodebuild -scheme Runner -sdk iphonesimulator -configuration Debug build
 
       - name: Perform CodeQL Analysis
         uses: github/codeql-action/analyze@v4
