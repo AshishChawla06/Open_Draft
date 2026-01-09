@@ -121,6 +121,20 @@ jobs:
       - run: flutter pub get
       - run: flutter build macos --release
 
+      # Create DMG
+      - name: Install create-dmg
+        run: brew install create-dmg
+
+      - name: Create DMG
+        run: |
+          cd build/macos/Build/Products/Release
+          create-dmg \
+            --volname "OpenDraft" \
+            --window-size 600 400 \
+            --app-drop-link 400 200 \
+            OpenDraft.dmg \
+            OpenDraft.app
+
       - uses: actions/upload-artifact@v4
         with:
           name: macos-app
@@ -139,6 +153,14 @@ jobs:
 
       - run: flutter pub get
       - run: flutter build ios --release --no-codesign
+
+      # Create unsigned IPA
+      - name: Create unsigned IPA
+        run: |
+          cd build/ios/iphoneos
+          mkdir Payload
+          cp -r Runner.app Payload/
+          zip -r OpenDraft.ipa Payload
 
       - uses: actions/upload-artifact@v4
         with:
@@ -163,7 +185,6 @@ jobs:
       - name: Bundle platform artifacts
         run: |
           cd artifacts
-
           zip -r android.zip android-apk || true
           zip -r windows.zip windows-exe || true
           zip -r linux.zip linux-build || true
@@ -178,15 +199,12 @@ jobs:
           name: "OpenDraft Build ${{ github.run_number }}"
           body: |
             Automated release for build ${{ github.run_number }}.
-
-            This release uses **bundled platform archives** to avoid rate limits and speed up downloads.
-
-            Included bundles:
+            This release includes:
             - android.zip
             - windows.zip
             - linux.zip
-            - macos.zip
-            - ios.zip
+            - macos.zip (includes .dmg)
+            - ios.zip (includes unsigned .ipa)
             - web.zip
           files: artifacts/*.zip
         env:
