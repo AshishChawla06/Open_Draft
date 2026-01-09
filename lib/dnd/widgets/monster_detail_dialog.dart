@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import '../models/monster.dart';
 import '../../widgets/glass_container.dart';
-import 'package:flutter/foundation.dart';
+import '../../widgets/cascade_image.dart';
 
 class MonsterDetailDialog extends StatelessWidget {
   final Monster monster;
@@ -47,13 +47,11 @@ class MonsterDetailDialog extends StatelessWidget {
                       ],
                     ),
                   ),
-                  if (monster.imgUrl != null)
+                  if (monster.imageCandidates.isNotEmpty)
                     ClipRRect(
                       borderRadius: BorderRadius.circular(12),
-                      child: Image.network(
-                        kIsWeb
-                            ? 'https://corsproxy.io/?${Uri.encodeComponent(monster.imgUrl!)}'
-                            : monster.imgUrl!,
+                      child: CascadeImage(
+                        imageUrls: monster.imageCandidates,
                         width: 100,
                         height: 100,
                         fit: BoxFit.cover,

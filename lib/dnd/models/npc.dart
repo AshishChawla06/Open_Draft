@@ -162,7 +162,8 @@ class Npc {
       backstory: json['backstory'] ?? '',
       appearance: json['appearance'] ?? '',
       voiceMannerisms: json['voiceMannerisms'] ?? '',
-      includeStatblock: json['includeStatblock'] ?? false,
+      includeStatblock:
+          json['includeStatblock'] == 1 || json['includeStatblock'] == true,
       armorClass: json['armorClass'],
       hitPoints: json['hitPoints'],
       abilityScores: json['abilityScores'] != null

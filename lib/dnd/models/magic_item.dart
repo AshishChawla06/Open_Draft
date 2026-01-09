@@ -101,7 +101,8 @@ class MagicItem {
       name: json['name'] ?? 'Unnamed Item',
       rarity: json['rarity'] ?? 'Common',
       type: json['type'] ?? 'Wondrous Item',
-      requiresAttunement: json['requiresAttunement'] ?? false,
+      requiresAttunement:
+          json['requiresAttunement'] == 1 || json['requiresAttunement'] == true,
       lore: json['lore'] ?? '',
       effects: json['effects'] ?? '',
       hiddenPowers: json['hiddenPowers'] ?? '',

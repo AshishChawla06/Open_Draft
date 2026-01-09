@@ -136,7 +136,10 @@ class _GlassContainerState extends State<GlassContainer> {
                     // Content Layer
                     Padding(
                       padding: widget.padding ?? EdgeInsets.zero,
-                      child: widget.child ?? const SizedBox.shrink(),
+                      child: Material(
+                        type: MaterialType.transparency,
+                        child: widget.child ?? const SizedBox.shrink(),
+                      ),
                     ),
                   ],
                 ),

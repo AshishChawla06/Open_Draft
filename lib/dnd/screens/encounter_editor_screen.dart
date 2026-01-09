@@ -3,6 +3,7 @@ import '../models/monster.dart';
 import '../models/encounter.dart';
 import '../../widgets/glass_container.dart';
 import '../../widgets/glass_background.dart';
+import '../../widgets/cascade_image.dart';
 import '../widgets/add_monster_dialog.dart';
 import 'package:flutter/foundation.dart';
 
@@ -286,38 +287,12 @@ class _EncounterEditorScreenState extends State<EncounterEditorScreen> {
                           leading: m.monsterSnapshot?.imgUrl != null
                               ? ClipRRect(
                                   borderRadius: BorderRadius.circular(4),
-                                  child: Image.network(
-                                    kIsWeb
-                                        ? 'https://corsproxy.io/?${Uri.encodeComponent(m.monsterSnapshot!.imgUrl!)}'
-                                        : m.monsterSnapshot!.imgUrl!,
+                                  child: CascadeImage(
+                                    imageUrls:
+                                        m.monsterSnapshot!.imageCandidates,
                                     width: 40,
                                     height: 40,
                                     fit: BoxFit.cover,
-                                    errorBuilder:
-                                        (context, error, stackTrace) =>
-                                            Container(
-                                              width: 40,
-                                              height: 40,
-                                              decoration: BoxDecoration(
-                                                color: Colors.red.withValues(
-                                                  alpha: 0.1,
-                                                ),
-                                                border: Border.all(
-                                                  color: Colors.red.withValues(
-                                                    alpha: 0.3,
-                                                  ),
-                                                ),
-                                                borderRadius:
-                                                    BorderRadius.circular(4),
-                                              ),
-                                              child: const Center(
-                                                child: Icon(
-                                                  Icons.error_outline,
-                                                  color: Colors.redAccent,
-                                                  size: 14,
-                                                ),
-                                              ),
-                                            ),
                                   ),
                                 )
                               : const Icon(Icons.pets, color: Colors.white24),
@@ -430,7 +405,6 @@ class _EncounterEditorScreenState extends State<EncounterEditorScreen> {
             itemCount: monstersWithImages.length,
             itemBuilder: (context, index) {
               final m = monstersWithImages[index];
-              final imgUrl = m.monsterSnapshot!.imgUrl!;
               return Padding(
                 padding: const EdgeInsets.only(right: 16),
                 child: Column(
@@ -438,10 +412,8 @@ class _EncounterEditorScreenState extends State<EncounterEditorScreen> {
                     Expanded(
                       child: ClipRRect(
                         borderRadius: BorderRadius.circular(12),
-                        child: Image.network(
-                          kIsWeb
-                              ? 'https://corsproxy.io/?${Uri.encodeComponent(imgUrl)}'
-                              : imgUrl,
+                        child: CascadeImage(
+                          imageUrls: m.monsterSnapshot!.imageCandidates,
                           width: 140,
                           fit: BoxFit.cover,
                           errorBuilder: (context, error, stackTrace) =>

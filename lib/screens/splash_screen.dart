@@ -38,11 +38,24 @@ class _SplashScreenState extends State<SplashScreen>
 
     try {
       // 1. Initialize Database & Sample Data
-      await DatabaseService.initializeSampleData();
+      await DatabaseService.initializeSampleData().timeout(
+        const Duration(seconds: 5),
+        onTimeout: () {
+          debugPrint('Database initialization timed out');
+        },
+      );
 
       // 2. Initialize Theme Service Preferences
       if (mounted) {
-        await Provider.of<ThemeService>(context, listen: false).initialization;
+        await Provider.of<ThemeService>(
+          context,
+          listen: false,
+        ).initialization.timeout(
+          const Duration(seconds: 2),
+          onTimeout: () {
+            debugPrint('Theme initialization timed out');
+          },
+        );
       }
 
       // Ensure at least 3 seconds of splash for branding/animation

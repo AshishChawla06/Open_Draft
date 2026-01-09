@@ -1,3 +1,5 @@
+import 'package:flutter/foundation.dart';
+
 class Monster {
   final String slug;
   final String name;
@@ -174,6 +176,75 @@ class Monster {
       description: description ?? this.description,
       source: source ?? this.source,
     );
+  }
+
+  List<String> get imageCandidates {
+    final candidates = <String>[];
+    const corsProxy = 'https://corsproxy.io/?';
+
+    // 1. Primary Image from API
+    if (imgUrl != null && imgUrl!.isNotEmpty) {
+      if (kIsWeb && imgUrl!.startsWith('http')) {
+        candidates.add('$corsProxy${Uri.encodeComponent(imgUrl!)}');
+      } else {
+        candidates.add(imgUrl!);
+      }
+    }
+
+    // 2. Fallback: 5e.tools (TheGiddyLimit/homebrew-img OR 5e.tools direct)
+    // 5e.tools structure: https://5e.tools/img/bestiary/MM/Aboleth.jpg
+    // Open5e slugs: 'wotc-srd' -> 'MM', 'tob' -> 'ToB', 'cc' -> 'CC'
+    String sourceCode = 'MM'; // Default to Monster Manual
+    if (source.toLowerCase().contains('srd'))
+      sourceCode = 'MM';
+    else if (source.toLowerCase().contains('tob') ||
+        source.toLowerCase().contains('tome of beasts'))
+      sourceCode = 'ToB';
+    else if (source.toLowerCase().contains('cc') ||
+        source.toLowerCase().contains('creature codex'))
+      sourceCode = 'CC';
+    else if (source.toLowerCase().contains('vgtm') ||
+        source.toLowerCase().contains('volo'))
+      sourceCode = 'VGM';
+    else if (source.toLowerCase().contains('mtof') ||
+        source.toLowerCase().contains('mordenkainen'))
+      sourceCode = 'MTF';
+    else if (source.toLowerCase().contains('ftod') ||
+        source.toLowerCase().contains('fisban'))
+      sourceCode = 'FTD';
+
+    // 5e.tools image naming: "Aboleth.jpg", "Adult Red Dragon.jpg"
+    // Usually title case, spaces allowed (URL encoded)
+    final encodedName = Uri.encodeComponent(name);
+
+    // Candidate 2A: 5e.tools Direct (via Proxy if Web)
+    final fiveEToolsUrl =
+        'https://5e.tools/img/bestiary/$sourceCode/$encodedName.jpg';
+    candidates.add(
+      kIsWeb
+          ? '$corsProxy${Uri.encodeComponent(fiveEToolsUrl)}'
+          : fiveEToolsUrl,
+    );
+
+    // Candidate 2B: 5e.tools (PNG extension)
+    final fiveEToolsPng =
+        'https://5e.tools/img/bestiary/$sourceCode/$encodedName.png';
+    candidates.add(
+      kIsWeb
+          ? '$corsProxy${Uri.encodeComponent(fiveEToolsPng)}'
+          : fiveEToolsPng,
+    );
+
+    // Candidate 2C: 5e.tools (WebP extension)
+    final fiveEToolsWebp =
+        'https://5e.tools/img/bestiary/$sourceCode/$encodedName.webp';
+    candidates.add(
+      kIsWeb
+          ? '$corsProxy${Uri.encodeComponent(fiveEToolsWebp)}'
+          : fiveEToolsWebp,
+    );
+
+    return candidates;
   }
 }
 

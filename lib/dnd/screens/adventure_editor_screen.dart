@@ -245,15 +245,19 @@ class _AdventureEditorScreenState extends State<AdventureEditorScreen> {
                                 ),
                                 child: GlassContainer(
                                   height: 48,
-                                  borderRadius: BorderRadius.circular(24),
+                                  borderRadius: BorderRadius.circular(16),
                                   opacity: 0.1,
                                   child: TabBar(
                                     indicator: BoxDecoration(
-                                      borderRadius: BorderRadius.circular(24),
+                                      borderRadius: BorderRadius.circular(16),
                                       color: Theme.of(context)
                                           .colorScheme
                                           .primary
                                           .withValues(alpha: 0.2),
+                                    ),
+                                    indicatorSize: TabBarIndicatorSize.tab,
+                                    splashBorderRadius: BorderRadius.circular(
+                                      16,
                                     ),
                                     dividerColor: Colors.transparent,
                                     labelColor: Theme.of(

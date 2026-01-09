@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../widgets/glass_container.dart';
+import '../../widgets/cascade_image.dart';
 import '../models/encounter.dart';
-import 'package:flutter/foundation.dart';
 
 class EncounterCard extends StatelessWidget {
   final Encounter encounter;
@@ -55,14 +55,12 @@ class EncounterCard extends StatelessWidget {
                       padding: const EdgeInsets.only(right: 12),
                       child: ClipRRect(
                         borderRadius: BorderRadius.circular(8),
-                        child: Image.network(
-                          kIsWeb
-                              ? 'https://corsproxy.io/?${Uri.encodeComponent(encounter.monsters.first.monsterSnapshot!.imgUrl!)}'
-                              : encounter
-                                    .monsters
-                                    .first
-                                    .monsterSnapshot!
-                                    .imgUrl!,
+                        child: CascadeImage(
+                          imageUrls: encounter
+                              .monsters
+                              .first
+                              .monsterSnapshot!
+                              .imageCandidates,
                           width: 48,
                           height: 48,
                           fit: BoxFit.cover,

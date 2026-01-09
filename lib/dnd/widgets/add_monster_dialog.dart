@@ -4,6 +4,7 @@ import '../models/monster.dart';
 import '../services/dnd_service.dart';
 import 'monster_detail_dialog.dart';
 import '../../widgets/glass_container.dart';
+import '../../widgets/cascade_image.dart';
 import 'package:flutter/foundation.dart';
 
 class AddMonsterDialog extends StatefulWidget {
@@ -251,38 +252,11 @@ class _AddMonsterDialogState extends State<AddMonsterDialog> {
                           leading: monster.imgUrl != null
                               ? ClipRRect(
                                   borderRadius: BorderRadius.circular(4),
-                                  child: Image.network(
-                                    kIsWeb
-                                        ? 'https://corsproxy.io/?${Uri.encodeComponent(monster.imgUrl!)}'
-                                        : monster.imgUrl!,
+                                  child: CascadeImage(
+                                    imageUrls: monster.imageCandidates,
                                     width: 48,
                                     height: 48,
                                     fit: BoxFit.cover,
-                                    errorBuilder:
-                                        (context, error, stackTrace) =>
-                                            Container(
-                                              width: 48,
-                                              height: 48,
-                                              decoration: BoxDecoration(
-                                                color: Colors.red.withValues(
-                                                  alpha: 0.1,
-                                                ),
-                                                border: Border.all(
-                                                  color: Colors.red.withValues(
-                                                    alpha: 0.3,
-                                                  ),
-                                                ),
-                                                borderRadius:
-                                                    BorderRadius.circular(4),
-                                              ),
-                                              child: const Center(
-                                                child: Icon(
-                                                  Icons.error_outline,
-                                                  color: Colors.redAccent,
-                                                  size: 16,
-                                                ),
-                                              ),
-                                            ),
                                   ),
                                 )
                               : const Icon(Icons.pets, color: Colors.white24),

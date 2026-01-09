@@ -2,6 +2,8 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
+import 'package:path_provider/path_provider.dart';
+import 'dart:io';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:logger/logger.dart';
 import '../models/book.dart';
@@ -26,7 +28,7 @@ class DatabaseService {
   static final Logger _logger = Logger();
   static Database? _database;
   static const String _dbName = 'novel_writer.db';
-  static const int _dbVersion = 11;
+  static const int _dbVersion = 12;
 
   /// Helper to get accurate word count from content
   static int _getWordCount(String content) {
@@ -76,26 +78,75 @@ class DatabaseService {
   static const String _webDndNotesKey = 'dnd_notes_data';
 
   /// Get database instance (mobile only)
+  static Future<Database>? _dbOpenFuture;
+
+  /// Get database instance (mobile only)
   static Future<Database> get database async {
     if (kIsWeb) {
       throw UnsupportedError('Database not used on web');
     }
     if (_database != null) return _database!;
-    _database = await _initDatabase();
+
+    _dbOpenFuture ??= _initDatabase();
+    _database = await _dbOpenFuture;
     return _database!;
   }
 
-  /// Initialize database (mobile only)
+  /// Initialize database (mobile and desktop)
   static Future<Database> _initDatabase() async {
-    final dbPath = await getDatabasesPath();
-    final path = join(dbPath, _dbName);
+    try {
+      _logger.i('Database: initialize started');
+      String dbPath;
+      if (Platform.isWindows || Platform.isLinux || Platform.isMacOS) {
+        _logger.i('Database: getting desktop support directory');
+        final docDir = await getApplicationSupportDirectory();
 
-    return await openDatabase(
-      path,
-      version: _dbVersion,
-      onCreate: _onCreate,
-      onUpgrade: _onUpgrade,
-    );
+        _logger.i('Database: creating directory ${docDir.path}');
+        dbPath = join(docDir.path, _dbName);
+        try {
+          await Directory(dirname(dbPath)).create(recursive: true);
+        } catch (e) {
+          _logger.w('Database: directory creation error (might exist): $e');
+        }
+      } else {
+        _logger.i('Database: getting mobile databases path');
+        dbPath = await getDatabasesPath();
+        dbPath = join(dbPath, _dbName);
+      }
+
+      _logger.i('Database: Opening database at: $dbPath');
+
+      final db = await openDatabase(
+        dbPath,
+        version: _dbVersion,
+        onConfigure: (db) async {
+          _logger.i('Database: onConfigure');
+        },
+        onCreate: (db, version) async {
+          _logger.i('Database: onCreate started (v$version)');
+          await _onCreate(db, version);
+          _logger.i('Database: onCreate finished');
+        },
+        onUpgrade: (db, oldVersion, newVersion) async {
+          _logger.i('Database: onUpgrade started ($oldVersion -> $newVersion)');
+          await _onUpgrade(db, oldVersion, newVersion);
+          _logger.i('Database: onUpgrade finished');
+        },
+        onOpen: (db) async {
+          _logger.i('Database: onOpen');
+        },
+      );
+
+      _logger.i('Database: openDatabase returned successfully');
+      return db;
+    } catch (e, stack) {
+      _logger.e(
+        'Database: CRITICAL INITIALIZATION ERROR',
+        error: e,
+        stackTrace: stack,
+      );
+      rethrow;
+    }
   }
 
   /// Create tables (mobile only)
@@ -234,6 +285,7 @@ class DatabaseService {
         size TEXT,
         type TEXT,
         role TEXT,
+        speed TEXT,
         traits TEXT,
         ideals TEXT,
         bonds TEXT,
@@ -437,6 +489,9 @@ class DatabaseService {
       await db.execute('ALTER TABLE dnd_npcs ADD COLUMN size TEXT');
       await db.execute('ALTER TABLE dnd_npcs ADD COLUMN type TEXT');
     }
+    if (oldVersion < 12) {
+      await db.execute('ALTER TABLE dnd_npcs ADD COLUMN speed TEXT');
+    }
   }
 
   // ... existing book/chapter methods ...
@@ -606,6 +661,7 @@ class DatabaseService {
   }
 
   static Future<void> _saveBookMobile(Book book) async {
+    _logger.i('Saving book mobile: ${book.id}');
     final db = await database;
 
     await db.insert('books', {
@@ -621,9 +677,12 @@ class DatabaseService {
       'scpMetadata': book.scpMetadata?.toJsonString(),
     }, conflictAlgorithm: ConflictAlgorithm.replace);
 
+    _logger.i('Book inserted/updated. Saving chapters...');
+
     for (final chapter in book.chapters) {
       await saveChapter(book.id, chapter);
     }
+    _logger.i('Book save complete: ${book.id}');
   }
 
   /// Save a chapter
@@ -761,8 +820,10 @@ class DatabaseService {
   }
 
   static Future<List<Book>> _getAllBooksMobile() async {
+    _logger.i('Getting all books mobile...');
     final db = await database;
     final bookMaps = await db.query('books', orderBy: 'updatedAt DESC');
+    _logger.i('Found ${bookMaps.length} books in DB');
 
     final books = <Book>[];
     for (final bookMap in bookMaps) {
@@ -1674,10 +1735,16 @@ class DatabaseService {
       map['ideals'] = jsonEncode(map['ideals']);
       map['bonds'] = jsonEncode(map['bonds']);
       map['flaws'] = jsonEncode(map['flaws']);
-      map['abilityScores'] = jsonEncode(map['abilityScores']);
+      map['abilityScores'] = map['abilityScores'] != null
+          ? jsonEncode(map['abilityScores'])
+          : null;
+      map['speed'] = jsonEncode(map['speed']);
       map['redactions'] = map['redactions'] != null
           ? jsonEncode(map['redactions'])
           : null;
+
+      // SQLite booleans as ints
+      map['includeStatblock'] = npc.includeStatblock ? 1 : 0;
 
       await db.insert(
         'dnd_npcs',
@@ -1715,6 +1782,8 @@ class DatabaseService {
           newMap['flaws'] = jsonDecode(newMap['flaws']);
         if (newMap['abilityScores'] is String)
           newMap['abilityScores'] = jsonDecode(newMap['abilityScores']);
+        if (newMap['speed'] is String)
+          newMap['speed'] = jsonDecode(newMap['speed']);
         if (newMap['redactions'] is String)
           newMap['redactions'] = jsonDecode(newMap['redactions']);
         return dnd.Npc.fromJson(newMap);
@@ -1751,9 +1820,16 @@ class DatabaseService {
       await prefs.setString(_webDndLocationsKey, jsonEncode(list));
     } else {
       final db = await database;
+      final map = location.toJson();
+      if (map['rooms'] != null) {
+        map['rooms'] = jsonEncode(map['rooms']);
+      }
+      if (map['redactions'] != null) {
+        map['redactions'] = jsonEncode(map['redactions']);
+      }
       await db.insert(
         'dnd_locations',
-        location.toJson(),
+        map,
         conflictAlgorithm: ConflictAlgorithm.replace,
       );
     }
@@ -1775,7 +1851,28 @@ class DatabaseService {
         where: 'adventureId = ?',
         whereArgs: [adventureId],
       );
-      return maps.map((map) => dnd.Location.fromJson(map)).toList();
+      return maps.map((map) {
+        final newMap = Map<String, dynamic>.from(map);
+        if (newMap['rooms'] is String) {
+          try {
+            newMap['rooms'] = jsonDecode(newMap['rooms']);
+          } catch (e) {
+            _logger.w('Error decoding rooms for location ${newMap['id']}: $e');
+            newMap['rooms'] = [];
+          }
+        }
+        if (newMap['redactions'] is String) {
+          try {
+            newMap['redactions'] = jsonDecode(newMap['redactions']);
+          } catch (e) {
+            _logger.w(
+              'Error decoding redactions for location ${newMap['id']}: $e',
+            );
+            newMap['redactions'] = null;
+          }
+        }
+        return dnd.Location.fromJson(newMap);
+      }).toList();
     }
   }
 
@@ -1814,6 +1911,9 @@ class DatabaseService {
       map['redactions'] = map['redactions'] != null
           ? jsonEncode(map['redactions'])
           : null;
+
+      // SQLite booleans as ints
+      map['requiresAttunement'] = item.requiresAttunement ? 1 : 0;
 
       await db.insert(
         'dnd_items',
@@ -1883,9 +1983,13 @@ class DatabaseService {
       await prefs.setString(_webDndEncountersKey, jsonEncode(list));
     } else {
       final db = await database;
+      final map = encounter.toJson();
+      if (map['monsters'] != null) {
+        map['monsters'] = jsonEncode(map['monsters']);
+      }
       await db.insert(
         'dnd_encounters',
-        encounter.toJson(),
+        map,
         conflictAlgorithm: ConflictAlgorithm.replace,
       );
     }
@@ -1907,7 +2011,20 @@ class DatabaseService {
         where: 'chapterId = ?',
         whereArgs: [chapterId],
       );
-      return maps.map((map) => dnd.Encounter.fromJson(map)).toList();
+      return maps.map((map) {
+        final newMap = Map<String, dynamic>.from(map);
+        if (newMap['monsters'] is String) {
+          try {
+            newMap['monsters'] = jsonDecode(newMap['monsters']);
+          } catch (e) {
+            _logger.w(
+              'Error decoding monsters for encounter ${newMap['id']}: $e',
+            );
+            newMap['monsters'] = [];
+          }
+        }
+        return dnd.Encounter.fromJson(newMap);
+      }).toList();
     }
   }
 
@@ -1940,9 +2057,13 @@ class DatabaseService {
       await prefs.setString(_webDndNotesKey, jsonEncode(list));
     } else {
       final db = await database;
+      final map = note.toJson();
+      if (map['redactions'] != null) {
+        map['redactions'] = jsonEncode(map['redactions']);
+      }
       await db.insert(
         'dnd_notes',
-        note.toJson(),
+        map,
         conflictAlgorithm: ConflictAlgorithm.replace,
       );
     }
@@ -1964,7 +2085,18 @@ class DatabaseService {
         where: 'adventureId = ?',
         whereArgs: [adventureId],
       );
-      return maps.map((map) => dnd.AdventureNote.fromJson(map)).toList();
+      return maps.map((map) {
+        final newMap = Map<String, dynamic>.from(map);
+        if (newMap['redactions'] is String) {
+          try {
+            newMap['redactions'] = jsonDecode(newMap['redactions']);
+          } catch (e) {
+            _logger.w('Error decoding redactions for note ${newMap['id']}: $e');
+            newMap['redactions'] = null;
+          }
+        }
+        return dnd.AdventureNote.fromJson(newMap);
+      }).toList();
     }
   }
 
