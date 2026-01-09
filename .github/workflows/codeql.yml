@@ -33,7 +33,6 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          path: .
 
       - name: Install Flutter
         uses: subosito/flutter-action@v2
@@ -46,27 +45,27 @@ jobs:
           languages: ${{ matrix.language }}
           build-mode: manual
 
-      # -----------------------------
-      # MANUAL BUILD STEPS
-      # -----------------------------
-
       - name: Flutter pub get
         run: flutter pub get
 
+      # -------------------------
+      # ANDROID BUILD (ONLY FOR JAVA/KOTLIN)
+      # -------------------------
       - name: Build Android (Java/Kotlin)
+        if: matrix.language == 'java-kotlin'
         run: |
           cd android
           chmod +x gradlew
           ./gradlew assembleDebug --no-daemon
 
+      # -------------------------
+      # IOS BUILD (ONLY FOR SWIFT)
+      # -------------------------
       - name: Build iOS (Swift)
+        if: matrix.language == 'swift'
         run: |
           cd ios
           xcodebuild -scheme Runner -sdk iphonesimulator -configuration Debug build
-
-      # -----------------------------
-      # END MANUAL BUILD STEPS
-      # -----------------------------
 
       - name: Perform CodeQL Analysis
         uses: github/codeql-action/analyze@v4

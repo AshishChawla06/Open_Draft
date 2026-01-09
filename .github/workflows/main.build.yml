@@ -10,8 +10,13 @@ on:
 env:
   NO_WATCHER: true
   CHOKIDAR_USEPOLLING: true
+  GRADLE_OPTS: "-Dorg.gradle.vfs.watch=false"
 
 jobs:
+
+  # -------------------------
+  # ANDROID
+  # -------------------------
   build-android:
     runs-on: ubuntu-latest
     steps:
@@ -40,6 +45,9 @@ jobs:
           name: android-apk
           path: build/app/outputs/flutter-apk/app-release.apk
 
+  # -------------------------
+  # WINDOWS
+  # -------------------------
   build-windows:
     runs-on: windows-latest
     steps:
@@ -57,6 +65,9 @@ jobs:
           name: windows-exe
           path: build/windows/x64/runner/Release/
 
+  # -------------------------
+  # LINUX
+  # -------------------------
   build-linux:
     runs-on: ubuntu-latest
     steps:
@@ -76,6 +87,9 @@ jobs:
           name: linux-build
           path: build/linux/x64/release/
 
+  # -------------------------
+  # WEB
+  # -------------------------
   build-web:
     runs-on: ubuntu-latest
     steps:
@@ -92,6 +106,9 @@ jobs:
           name: web-build
           path: build/web/
 
+  # -------------------------
+  # MACOS
+  # -------------------------
   build-macos:
     runs-on: macos-latest
     steps:
@@ -109,6 +126,9 @@ jobs:
           name: macos-app
           path: build/macos/Build/Products/Release/
 
+  # -------------------------
+  # IOS
+  # -------------------------
   build-ios:
     runs-on: macos-latest
     steps:
@@ -125,33 +145,49 @@ jobs:
           name: ios-build
           path: build/ios/iphoneos/
 
+  # -------------------------
+  # RELEASE (BUNDLED ZIPS)
+  # -------------------------
   release:
     needs: [build-android, build-windows, build-linux, build-web, build-macos, build-ios]
     runs-on: ubuntu-latest
     permissions:
       contents: write
-    steps:
-      - uses: actions/checkout@v4
 
+    steps:
       - name: Download all artifacts
         uses: actions/download-artifact@v4
         with:
           path: artifacts
 
-      - name: Create GitHub Release with assets
+      - name: Bundle platform artifacts
+        run: |
+          cd artifacts
+
+          zip -r android.zip android-apk || true
+          zip -r windows.zip windows-exe || true
+          zip -r linux.zip linux-build || true
+          zip -r macos.zip macos-app || true
+          zip -r ios.zip ios-build || true
+          zip -r web.zip web-build || true
+
+      - name: Create GitHub Release (bundled assets)
         uses: softprops/action-gh-release@v2
         with:
           tag_name: "v${{ github.run_number }}"
           name: "OpenDraft Build ${{ github.run_number }}"
           body: |
             Automated release for build ${{ github.run_number }}.
-            Includes:
-            - Android APK
-            - Windows EXE
-            - Linux build
-            - Web build
-            - macOS app
-            - iOS build (unsigned)
-          files: artifacts/**/*
+
+            This release uses **bundled platform archives** to avoid rate limits and speed up downloads.
+
+            Included bundles:
+            - android.zip
+            - windows.zip
+            - linux.zip
+            - macos.zip
+            - ios.zip
+            - web.zip
+          files: artifacts/*.zip
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
