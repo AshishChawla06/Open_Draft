@@ -26,14 +26,21 @@ jobs:
         with:
           channel: stable
 
-      - name: Auto-increment build number
+      # Auto-increment prerelease version: v0.0.1-alpha.X
+      - name: Auto-increment prerelease version
         run: |
           VERSION_LINE=$(grep '^version:' pubspec.yaml)
           VERSION=$(echo $VERSION_LINE | cut -d ' ' -f2)
-          BASE=$(echo $VERSION | cut -d+ -f1)
-          BUILD=$(echo $VERSION | cut -d+ -f2)
-          NEW_BUILD=$((BUILD + 1))
-          NEW_VERSION="$BASE+$NEW_BUILD"
+
+          BASE=$(echo $VERSION | cut -d- -f1)
+          PRE=$(echo $VERSION | cut -d- -f2)
+
+          CHANNEL=$(echo $PRE | cut -d. -f1)
+          NUM=$(echo $PRE | cut -d. -f2)
+
+          NEW_NUM=$((NUM + 1))
+          NEW_VERSION="${BASE}-${CHANNEL}.${NEW_NUM}"
+
           sed -i "s/version: .*/version: $NEW_VERSION/" pubspec.yaml
           echo "New version: $NEW_VERSION"
 
@@ -199,7 +206,7 @@ jobs:
           name: "OpenDraft Build ${{ github.run_number }}"
           body: |
             Automated release for build ${{ github.run_number }}.
-            This release includes:
+            Included bundles:
             - android.zip
             - windows.zip
             - linux.zip
