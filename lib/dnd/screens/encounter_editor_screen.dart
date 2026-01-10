@@ -5,7 +5,6 @@ import '../../widgets/glass_container.dart';
 import '../../widgets/glass_background.dart';
 import '../../widgets/cascade_image.dart';
 import '../widgets/add_monster_dialog.dart';
-import 'package:flutter/foundation.dart';
 
 class EncounterEditorScreen extends StatefulWidget {
   final Encounter encounter;

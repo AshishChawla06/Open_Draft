@@ -111,10 +111,32 @@ class ExportService {
         if (!kIsWeb) {
           final file = File(outputFile);
           await file.writeAsBytes(bytes);
+
+          // Reveal the file in the file explorer
+          await _revealInExplorer(outputFile);
         }
       } else {
         // User canceled
       }
+    }
+  }
+
+  /// Reveal a file in the system file explorer
+  static Future<void> _revealInExplorer(String filePath) async {
+    try {
+      if (Platform.isMacOS) {
+        // macOS: Use 'open -R' to reveal in Finder
+        await Process.run('open', ['-R', filePath]);
+      } else if (Platform.isWindows) {
+        // Windows: Use 'explorer /select,' to open Explorer and select file
+        await Process.run('explorer', ['/select,', filePath]);
+      } else if (Platform.isLinux) {
+        // Linux: Try to use xdg-open to open the parent directory
+        final parentDir = File(filePath).parent.path;
+        await Process.run('xdg-open', [parentDir]);
+      }
+    } catch (e) {
+      // Silently fail if we can't reveal the file - it's already saved
     }
   }
 

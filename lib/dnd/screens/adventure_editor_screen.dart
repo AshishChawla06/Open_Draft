@@ -338,8 +338,9 @@ class _AdventureEditorScreenState extends State<AdventureEditorScreen> {
                                                   selected:
                                                       ch.id == _chapter.id,
                                                   onTap: () async {
-                                                    if (ch.id == _chapter.id)
+                                                    if (ch.id == _chapter.id) {
                                                       return;
+                                                    }
 
                                                     // Auto-save current chapter before switching
                                                     await _saveChapter();
@@ -610,7 +611,7 @@ class _AdventureEditorScreenState extends State<AdventureEditorScreen> {
             mainAxisSize: MainAxisSize.min,
             children: [
               DropdownButtonFormField<DnDExportFormat>(
-                value: selectedFormat,
+                initialValue: selectedFormat,
                 decoration: const InputDecoration(labelText: 'Format'),
                 items: DnDExportFormat.values.map((f) {
                   return DropdownMenuItem(
@@ -621,7 +622,7 @@ class _AdventureEditorScreenState extends State<AdventureEditorScreen> {
                 onChanged: (val) => setDialogState(() => selectedFormat = val!),
               ),
               DropdownButtonFormField<DnDExportMode>(
-                value: selectedMode,
+                initialValue: selectedMode,
                 decoration: const InputDecoration(labelText: 'Version'),
                 items: DnDExportMode.values.map((m) {
                   return DropdownMenuItem(
@@ -634,7 +635,7 @@ class _AdventureEditorScreenState extends State<AdventureEditorScreen> {
                 onChanged: (val) => setDialogState(() => selectedMode = val!),
               ),
               DropdownButtonFormField<DnDExportTheme>(
-                value: selectedTheme,
+                initialValue: selectedTheme,
                 decoration: const InputDecoration(labelText: 'Theme'),
                 items: DnDExportTheme.values.map((t) {
                   return DropdownMenuItem(
@@ -677,16 +678,23 @@ class _AdventureEditorScreenState extends State<AdventureEditorScreen> {
                   );
 
                   if (selectedFormat == DnDExportFormat.pdf) {
-                    await DnDExportService.exportAdventureToPdf(
-                      book: widget.book,
-                      chapters: chapters,
-                      npcs: npcs,
-                      locations: locations,
-                      items: items,
-                      notes: notes,
-                      encounters: encounters,
-                      mode: selectedMode,
-                      theme: selectedTheme,
+                    final pdfBytes =
+                        await DnDExportService.exportAdventureToPdf(
+                          book: widget.book,
+                          chapters: chapters,
+                          npcs: npcs,
+                          locations: locations,
+                          items: items,
+                          notes: notes,
+                          encounters: encounters,
+                          mode: selectedMode,
+                          theme: selectedTheme,
+                        );
+                    // Use standard export service for PDF file saving
+                    await ExportService.saveFile(
+                      widget.book.title,
+                      '.pdf',
+                      Uint8List.fromList(pdfBytes),
                     );
                   } else {
                     final html = DnDExportService.exportAdventureToHtml(

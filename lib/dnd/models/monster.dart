@@ -195,9 +195,9 @@ class Monster {
     // 5e.tools structure: https://5e.tools/img/bestiary/MM/Aboleth.jpg
     // Open5e slugs: 'wotc-srd' -> 'MM', 'tob' -> 'ToB', 'cc' -> 'CC'
     String sourceCode = 'MM'; // Default to Monster Manual
-    if (source.toLowerCase().contains('srd'))
+    if (source.toLowerCase().contains('srd')) {
       sourceCode = 'MM';
-    else if (source.toLowerCase().contains('tob') ||
+    } else if (source.toLowerCase().contains('tob') ||
         source.toLowerCase().contains('tome of beasts'))
       sourceCode = 'ToB';
     else if (source.toLowerCase().contains('cc') ||

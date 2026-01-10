@@ -213,7 +213,7 @@ class _ItemsTabState extends State<ItemsTab> {
                   decoration: const InputDecoration(labelText: 'Name'),
                 ),
                 DropdownButtonFormField<String>(
-                  value: _rarities.contains(rarityController.text)
+                  initialValue: _rarities.contains(rarityController.text)
                       ? rarityController.text
                       : _rarities[0],
                   decoration: const InputDecoration(labelText: 'Rarity'),
@@ -224,7 +224,7 @@ class _ItemsTabState extends State<ItemsTab> {
                       setDialogState(() => rarityController.text = val!),
                 ),
                 DropdownButtonFormField<String>(
-                  value: _types.contains(typeController.text)
+                  initialValue: _types.contains(typeController.text)
                       ? typeController.text
                       : _types[0],
                   decoration: const InputDecoration(labelText: 'Type'),

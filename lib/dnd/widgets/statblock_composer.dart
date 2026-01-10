@@ -31,6 +31,9 @@ class _StatblockComposerState extends State<StatblockComposer> {
     'CHA': 10,
   };
 
+  // Track which ability scores are locked (won't change on randomize)
+  final Set<String> _lockedStats = {};
+
   final List<String> _sizes = [
     'Tiny',
     'Small',
@@ -95,12 +98,25 @@ class _StatblockComposerState extends State<StatblockComposer> {
 
   void _randomizeStats() {
     setState(() {
-      _abilityScores['STR'] = 8 + (DateTime.now().millisecond % 10);
-      _abilityScores['DEX'] = 8 + (DateTime.now().millisecond % 10);
-      _abilityScores['CON'] = 8 + (DateTime.now().microsecond % 10);
-      _abilityScores['INT'] = 8 + (DateTime.now().millisecond % 10);
-      _abilityScores['WIS'] = 8 + (DateTime.now().microsecond % 10);
-      _abilityScores['CHA'] = 8 + (DateTime.now().millisecond % 10);
+      // Only randomize stats that are not locked
+      if (!_lockedStats.contains('STR')) {
+        _abilityScores['STR'] = 8 + (DateTime.now().millisecond % 10);
+      }
+      if (!_lockedStats.contains('DEX')) {
+        _abilityScores['DEX'] = 8 + (DateTime.now().millisecond % 10);
+      }
+      if (!_lockedStats.contains('CON')) {
+        _abilityScores['CON'] = 8 + (DateTime.now().microsecond % 10);
+      }
+      if (!_lockedStats.contains('INT')) {
+        _abilityScores['INT'] = 8 + (DateTime.now().millisecond % 10);
+      }
+      if (!_lockedStats.contains('WIS')) {
+        _abilityScores['WIS'] = 8 + (DateTime.now().microsecond % 10);
+      }
+      if (!_lockedStats.contains('CHA')) {
+        _abilityScores['CHA'] = 8 + (DateTime.now().millisecond % 10);
+      }
 
       _selectedSize = (_sizes..shuffle()).first;
       _selectedType = (_types..shuffle()).first;
@@ -178,7 +194,7 @@ class _StatblockComposerState extends State<StatblockComposer> {
                       children: [
                         Expanded(
                           child: DropdownButtonFormField<String>(
-                            value: _sizes.contains(_selectedSize)
+                            initialValue: _sizes.contains(_selectedSize)
                                 ? _selectedSize
                                 : _sizes[2],
                             decoration: const InputDecoration(
@@ -199,7 +215,7 @@ class _StatblockComposerState extends State<StatblockComposer> {
                         const SizedBox(width: 8),
                         Expanded(
                           child: DropdownButtonFormField<String>(
-                            value: _types.contains(_selectedType)
+                            initialValue: _types.contains(_selectedType)
                                 ? _selectedType
                                 : _types[0],
                             decoration: const InputDecoration(
@@ -221,7 +237,7 @@ class _StatblockComposerState extends State<StatblockComposer> {
                     ),
                     const SizedBox(height: 16),
                     DropdownButtonFormField<String>(
-                      value: _alignments.contains(_selectedAlignment)
+                      initialValue: _alignments.contains(_selectedAlignment)
                           ? _selectedAlignment
                           : _alignments[4],
                       decoration: const InputDecoration(labelText: 'Alignment'),
@@ -345,13 +361,43 @@ class _StatblockComposerState extends State<StatblockComposer> {
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
       crossAxisCount: 6,
-      childAspectRatio: 0.8,
+      childAspectRatio: 0.65,
       children: _abilityScores.keys.map((stat) {
+        final isLocked = _lockedStats.contains(stat);
         return Column(
           children: [
-            Text(
-              stat,
-              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  stat,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 12,
+                  ),
+                ),
+                const SizedBox(width: 2),
+                GestureDetector(
+                  onTap: () {
+                    setState(() {
+                      if (isLocked) {
+                        _lockedStats.remove(stat);
+                      } else {
+                        _lockedStats.add(stat);
+                      }
+                    });
+                  },
+                  child: Icon(
+                    isLocked ? Icons.lock : Icons.lock_open,
+                    size: 12,
+                    color: isLocked
+                        ? Theme.of(context).colorScheme.primary
+                        : Theme.of(
+                            context,
+                          ).colorScheme.onSurface.withValues(alpha: 0.3),
+                  ),
+                ),
+              ],
             ),
             const SizedBox(height: 4),
             SizedBox(
@@ -363,6 +409,19 @@ class _StatblockComposerState extends State<StatblockComposer> {
                   contentPadding: EdgeInsets.zero,
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(4),
+                    borderSide: BorderSide(
+                      color: isLocked
+                          ? Theme.of(context).colorScheme.primary
+                          : Theme.of(context).colorScheme.outline,
+                    ),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(4),
+                    borderSide: BorderSide(
+                      color: isLocked
+                          ? Theme.of(context).colorScheme.primary
+                          : Theme.of(context).colorScheme.outline,
+                    ),
                   ),
                 ),
                 controller: TextEditingController(

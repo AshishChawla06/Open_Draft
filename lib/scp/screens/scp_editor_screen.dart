@@ -785,103 +785,85 @@ class _SCPEditorScreenState extends State<SCPEditorScreen> {
                                     ),
                                   ),
                                   const SizedBox(width: 8),
-                                  IconButton(
+                                  PopupMenuButton<Color>(
                                     icon: const Icon(
                                       Icons.auto_fix_high,
                                       color: Color(0xFFFF4444),
                                     ),
                                     tooltip: 'Redaction Tools',
-                                    onPressed: () {
-                                      final renderBox =
-                                          context.findRenderObject()
-                                              as RenderBox;
-                                      final offset = renderBox.localToGlobal(
-                                        Offset.zero,
-                                      );
-                                      showMenu<Color>(
-                                        context: context,
-                                        position: RelativeRect.fromLTRB(
-                                          offset.dx + 100,
-                                          offset.dy + 200,
-                                          offset.dx + 200,
-                                          offset.dy + 300,
-                                        ),
-                                        items: [
-                                          PopupMenuItem(
-                                            value: Colors.black,
-                                            child: Row(
-                                              children: [
-                                                Container(
-                                                  width: 16,
-                                                  height: 16,
-                                                  decoration: BoxDecoration(
-                                                    color: Colors.black,
-                                                    border: Border.all(
-                                                      color: Colors.white24,
-                                                    ),
-                                                  ),
-                                                  margin: const EdgeInsets.only(
-                                                    right: 8,
-                                                  ),
-                                                ),
-                                                const Text('Black Block'),
-                                              ],
-                                            ),
-                                          ),
-                                          PopupMenuItem(
-                                            value: Colors.white,
-                                            child: Row(
-                                              children: [
-                                                Container(
-                                                  width: 16,
-                                                  height: 16,
-                                                  decoration: BoxDecoration(
-                                                    color: Colors.white,
-                                                    border: Border.all(
-                                                      color: Colors.black26,
-                                                    ),
-                                                  ),
-                                                  margin: const EdgeInsets.only(
-                                                    right: 8,
-                                                  ),
-                                                ),
-                                                const Text('White Block'),
-                                              ],
-                                            ),
-                                          ),
-                                          PopupMenuItem(
-                                            value: Colors.grey,
-                                            child: Row(
-                                              children: [
-                                                Container(
-                                                  width: 16,
-                                                  height: 16,
-                                                  color: Colors.grey,
-                                                  margin: const EdgeInsets.only(
-                                                    right: 8,
-                                                  ),
-                                                ),
-                                                const Text('Gray Block'),
-                                              ],
-                                            ),
-                                          ),
-                                          const PopupMenuItem(
-                                            value: Colors.transparent,
-                                            child: Row(
-                                              children: [
-                                                Icon(Icons.close, size: 16),
-                                                SizedBox(width: 8),
-                                                Text('Clear Redaction'),
-                                              ],
-                                            ),
-                                          ),
-                                        ],
-                                      ).then((value) {
-                                        if (value != null) {
-                                          _applyRedaction(value);
-                                        }
-                                      });
+                                    onSelected: (value) {
+                                      _applyRedaction(value);
                                     },
+                                    itemBuilder: (context) => [
+                                      PopupMenuItem(
+                                        value: Colors.black,
+                                        child: Row(
+                                          children: [
+                                            Container(
+                                              width: 16,
+                                              height: 16,
+                                              decoration: BoxDecoration(
+                                                color: Colors.black,
+                                                border: Border.all(
+                                                  color: Colors.white24,
+                                                ),
+                                              ),
+                                              margin: const EdgeInsets.only(
+                                                right: 8,
+                                              ),
+                                            ),
+                                            const Text('Black Block'),
+                                          ],
+                                        ),
+                                      ),
+                                      PopupMenuItem(
+                                        value: Colors.white,
+                                        child: Row(
+                                          children: [
+                                            Container(
+                                              width: 16,
+                                              height: 16,
+                                              decoration: BoxDecoration(
+                                                color: Colors.white,
+                                                border: Border.all(
+                                                  color: Colors.black26,
+                                                ),
+                                              ),
+                                              margin: const EdgeInsets.only(
+                                                right: 8,
+                                              ),
+                                            ),
+                                            const Text('White Block'),
+                                          ],
+                                        ),
+                                      ),
+                                      PopupMenuItem(
+                                        value: Colors.grey,
+                                        child: Row(
+                                          children: [
+                                            Container(
+                                              width: 16,
+                                              height: 16,
+                                              color: Colors.grey,
+                                              margin: const EdgeInsets.only(
+                                                right: 8,
+                                              ),
+                                            ),
+                                            const Text('Gray Block'),
+                                          ],
+                                        ),
+                                      ),
+                                      const PopupMenuItem(
+                                        value: Colors.transparent,
+                                        child: Row(
+                                          children: [
+                                            Icon(Icons.close, size: 16),
+                                            SizedBox(width: 8),
+                                            Text('Clear Redaction'),
+                                          ],
+                                        ),
+                                      ),
+                                    ],
                                   ),
                                 ],
                               ),

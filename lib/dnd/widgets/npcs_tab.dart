@@ -264,7 +264,7 @@ class _NpcsTabState extends State<NpcsTab> {
                   decoration: const InputDecoration(labelText: 'Name'),
                 ),
                 DropdownButtonFormField<String>(
-                  value: _races.contains(raceController.text)
+                  initialValue: _races.contains(raceController.text)
                       ? raceController.text
                       : _races[0],
                   decoration: const InputDecoration(labelText: 'Race'),
@@ -275,7 +275,7 @@ class _NpcsTabState extends State<NpcsTab> {
                       setDialogState(() => raceController.text = val!),
                 ),
                 DropdownButtonFormField<String>(
-                  value: _classes.contains(classController.text)
+                  initialValue: _classes.contains(classController.text)
                       ? classController.text
                       : _classes[0],
                   decoration: const InputDecoration(labelText: 'Class'),
@@ -286,7 +286,7 @@ class _NpcsTabState extends State<NpcsTab> {
                       setDialogState(() => classController.text = val!),
                 ),
                 DropdownButtonFormField<String>(
-                  value: _roles.contains(roleController.text)
+                  initialValue: _roles.contains(roleController.text)
                       ? roleController.text
                       : _roles[0],
                   decoration: const InputDecoration(labelText: 'Role'),
@@ -300,7 +300,9 @@ class _NpcsTabState extends State<NpcsTab> {
                   children: [
                     Expanded(
                       child: DropdownButtonFormField<String>(
-                        value: _sizes.contains(npc.size) ? npc.size : _sizes[2],
+                        initialValue: _sizes.contains(npc.size)
+                            ? npc.size
+                            : _sizes[2],
                         decoration: const InputDecoration(labelText: 'Size'),
                         items: _sizes
                             .map(
@@ -314,7 +316,9 @@ class _NpcsTabState extends State<NpcsTab> {
                     const SizedBox(width: 8),
                     Expanded(
                       child: DropdownButtonFormField<String>(
-                        value: _types.contains(npc.type) ? npc.type : _types[0],
+                        initialValue: _types.contains(npc.type)
+                            ? npc.type
+                            : _types[0],
                         decoration: const InputDecoration(labelText: 'Type'),
                         items: _types
                             .map(
@@ -328,7 +332,7 @@ class _NpcsTabState extends State<NpcsTab> {
                   ],
                 ),
                 DropdownButtonFormField<String>(
-                  value: _alignments.contains(npc.alignment)
+                  initialValue: _alignments.contains(npc.alignment)
                       ? npc.alignment
                       : _alignments[4],
                   decoration: const InputDecoration(labelText: 'Alignment'),

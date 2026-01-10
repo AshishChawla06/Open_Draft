@@ -5,7 +5,6 @@ import '../services/dnd_service.dart';
 import 'monster_detail_dialog.dart';
 import '../../widgets/glass_container.dart';
 import '../../widgets/cascade_image.dart';
-import 'package:flutter/foundation.dart';
 
 class AddMonsterDialog extends StatefulWidget {
   const AddMonsterDialog({super.key});
@@ -23,7 +22,7 @@ class _AddMonsterDialogState extends State<AddMonsterDialog> {
   Timer? _debounce;
 
   String _selectedType = '';
-  String _sortBy = 'Name';
+  final String _sortBy = 'Name';
   final List<String> _types = [
     '',
     'aberration',

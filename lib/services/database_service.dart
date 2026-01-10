@@ -1772,20 +1772,27 @@ class DatabaseService {
       );
       return maps.map((map) {
         final newMap = Map<String, dynamic>.from(map);
-        if (newMap['traits'] is String)
+        if (newMap['traits'] is String) {
           newMap['traits'] = jsonDecode(newMap['traits']);
-        if (newMap['ideals'] is String)
+        }
+        if (newMap['ideals'] is String) {
           newMap['ideals'] = jsonDecode(newMap['ideals']);
-        if (newMap['bonds'] is String)
+        }
+        if (newMap['bonds'] is String) {
           newMap['bonds'] = jsonDecode(newMap['bonds']);
-        if (newMap['flaws'] is String)
+        }
+        if (newMap['flaws'] is String) {
           newMap['flaws'] = jsonDecode(newMap['flaws']);
-        if (newMap['abilityScores'] is String)
+        }
+        if (newMap['abilityScores'] is String) {
           newMap['abilityScores'] = jsonDecode(newMap['abilityScores']);
-        if (newMap['speed'] is String)
+        }
+        if (newMap['speed'] is String) {
           newMap['speed'] = jsonDecode(newMap['speed']);
-        if (newMap['redactions'] is String)
+        }
+        if (newMap['redactions'] is String) {
           newMap['redactions'] = jsonDecode(newMap['redactions']);
+        }
         return dnd.Npc.fromJson(newMap);
       }).toList();
     }

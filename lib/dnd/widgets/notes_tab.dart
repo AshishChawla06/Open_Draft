@@ -169,13 +169,20 @@ class _NotesTabState extends State<NotesTab> {
                         final selection = contentController.selection;
                         final text = contentController.text;
                         final link = '[[NPC: $name]]';
+                        // Handle case when no cursor position in text field
+                        final start = selection.start >= 0
+                            ? selection.start
+                            : text.length;
+                        final end = selection.end >= 0
+                            ? selection.end
+                            : text.length;
                         contentController.text = text.replaceRange(
-                          selection.start,
-                          selection.end,
+                          start,
+                          end,
                           link,
                         );
                         contentController.selection = TextSelection.collapsed(
-                          offset: selection.start + link.length,
+                          offset: start + link.length,
                         );
                       }),
                     ),
@@ -188,13 +195,20 @@ class _NotesTabState extends State<NotesTab> {
                         final selection = contentController.selection;
                         final text = contentController.text;
                         final link = '[[Location: $name]]';
+                        // Handle case when no cursor position in text field
+                        final start = selection.start >= 0
+                            ? selection.start
+                            : text.length;
+                        final end = selection.end >= 0
+                            ? selection.end
+                            : text.length;
                         contentController.text = text.replaceRange(
-                          selection.start,
-                          selection.end,
+                          start,
+                          end,
                           link,
                         );
                         contentController.selection = TextSelection.collapsed(
-                          offset: selection.start + link.length,
+                          offset: start + link.length,
                         );
                       }),
                     ),
@@ -207,13 +221,20 @@ class _NotesTabState extends State<NotesTab> {
                         final selection = contentController.selection;
                         final text = contentController.text;
                         final link = '[[Encounter: $name]]';
+                        // Handle case when no cursor position in text field
+                        final start = selection.start >= 0
+                            ? selection.start
+                            : text.length;
+                        final end = selection.end >= 0
+                            ? selection.end
+                            : text.length;
                         contentController.text = text.replaceRange(
-                          selection.start,
-                          selection.end,
+                          start,
+                          end,
                           link,
                         );
                         contentController.selection = TextSelection.collapsed(
-                          offset: selection.start + link.length,
+                          offset: start + link.length,
                         );
                       }),
                     ),
@@ -306,7 +327,7 @@ class _NotesTabState extends State<NotesTab> {
   }
 
   Future<void> _showLinkPicker(
-    BuildContext context,
+    BuildContext parentContext,
     String type,
     Function(String) onPicked,
   ) async {
@@ -322,18 +343,18 @@ class _NotesTabState extends State<NotesTab> {
       items = encounters.map((e) => e.title).toList();
     }
 
-    if (!context.mounted) return;
+    if (!parentContext.mounted) return;
 
     if (items.isEmpty) {
       ScaffoldMessenger.of(
-        context,
+        parentContext,
       ).showSnackBar(SnackBar(content: Text('No ${type}s found to link.')));
       return;
     }
 
     showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
+      context: parentContext,
+      builder: (dialogContext) => AlertDialog(
         title: Text('Link $type'),
         content: SizedBox(
           width: 300,
@@ -344,8 +365,8 @@ class _NotesTabState extends State<NotesTab> {
               return ListTile(
                 title: Text(items[index]),
                 onTap: () {
-                  onPicked(items[index]);
-                  Navigator.pop(context);
+                  Navigator.pop(dialogContext); // Close this dialog first
+                  onPicked(items[index]); // Then invoke callback
                 },
               );
             },

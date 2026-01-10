@@ -8,7 +8,7 @@ import '../models/adventure_note.dart';
 import '../models/encounter.dart';
 import '../services/dnd_export_service.dart';
 import '../../services/database_service.dart';
-import '../../widgets/glass_container.dart';
+
 import '../../widgets/glass_background.dart';
 import 'package:flutter_widget_from_html/flutter_widget_from_html.dart';
 
@@ -153,6 +153,40 @@ class _DnDExportPreviewScreenState extends State<DnDExportPreviewScreen> {
     );
   }
 
+  /// Get Flutter colors for each theme
+  Map<String, Color> _getThemeColors(DnDExportTheme theme) {
+    switch (theme) {
+      case DnDExportTheme.parchment:
+        return {
+          'background': const Color(0xFFF4E8D8),
+          'text': const Color(0xFF3E2723),
+          'heading': const Color(0xFF5D4037),
+          'accent': const Color(0xFFD84315),
+        };
+      case DnDExportTheme.darkArcana:
+        return {
+          'background': const Color(0xFF1A1A2E),
+          'text': const Color(0xFFE0E0E0),
+          'heading': const Color(0xFF9C27B0),
+          'accent': const Color(0xFFBA68C8),
+        };
+      case DnDExportTheme.glassmorphic:
+        return {
+          'background': const Color(0xFF667EEA),
+          'text': Colors.white,
+          'heading': Colors.white,
+          'accent': const Color(0xFF00BCD4),
+        };
+      case DnDExportTheme.srdClean:
+        return {
+          'background': Colors.white,
+          'text': Colors.black,
+          'heading': const Color(0xFF333333),
+          'accent': const Color(0xFF1976D2),
+        };
+    }
+  }
+
   Widget _buildPreviewPane(String label, DnDExportMode mode) {
     final html = DnDExportService.exportAdventureToHtml(
       book: widget.book,
@@ -165,6 +199,8 @@ class _DnDExportPreviewScreenState extends State<DnDExportPreviewScreen> {
       mode: mode,
       theme: _theme,
     );
+
+    final themeColors = _getThemeColors(_theme);
 
     return Column(
       children: [
@@ -179,11 +215,25 @@ class _DnDExportPreviewScreenState extends State<DnDExportPreviewScreen> {
           ),
         ),
         Expanded(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(16),
-            child: GlassContainer(
+          child: Container(
+            key: ValueKey('container_${_theme.name}_${mode.name}'),
+            decoration: BoxDecoration(
+              color: themeColors['background'],
+              gradient: _theme == DnDExportTheme.glassmorphic
+                  ? const LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [Color(0xFF667EEA), Color(0xFF764BA2)],
+                    )
+                  : null,
+            ),
+            child: SingleChildScrollView(
               padding: const EdgeInsets.all(16),
-              child: HtmlWidget(html, textStyle: const TextStyle(fontSize: 14)),
+              child: HtmlWidget(
+                html,
+                key: ValueKey('html_${_theme.name}_${mode.name}'),
+                textStyle: TextStyle(fontSize: 14, color: themeColors['text']),
+              ),
             ),
           ),
         ),
