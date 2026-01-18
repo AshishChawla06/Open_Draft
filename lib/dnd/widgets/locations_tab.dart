@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import '../models/location.dart';
 import '../../models/book.dart';
 import '../../services/database_service.dart';
@@ -6,9 +7,8 @@ import '../../widgets/glass_container.dart';
 import 'redaction_overlay.dart';
 import '../../models/redaction.dart';
 import '../../services/image_service.dart';
-import '../../../widgets/file_io.dart'
-    if (dart.library.html) '../../../widgets/file_stub.dart';
-import 'package:flutter/foundation.dart';
+import '../../widgets/image_provider_io.dart'
+    if (dart.library.html) '../../widgets/image_provider_web.dart';
 
 class LocationsTab extends StatefulWidget {
   final Book book;
@@ -229,8 +229,7 @@ class _LocationsTabState extends State<LocationsTab> {
                               ? DecorationImage(
                                   image: kIsWeb
                                       ? NetworkImage(currentMapUrl!)
-                                      : FileImage(File(currentMapUrl!))
-                                            as ImageProvider,
+                                      : getImageProvider(currentMapUrl!),
                                   fit: BoxFit.cover,
                                 )
                               : null,

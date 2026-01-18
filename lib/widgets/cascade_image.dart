@@ -1,9 +1,8 @@
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
-
-// Conditional import: use dart:io on mobile/desktop, stub on web
-import 'file_io.dart' if (dart.library.html) 'file_stub.dart';
+import 'file_loader_io.dart' if (dart.library.html) 'file_loader_web.dart';
 
 /// A widget that tries to load images from a list of URLs sequentially.
 /// If one fails, it tries the next. If all fail, it shows a placeholder.
@@ -105,20 +104,18 @@ class _CascadeImageState extends State<CascadeImage> {
     try {
       final url = widget.imageUrls[_currentIndex];
 
-      // Check if it's a local file path
-      if (url.startsWith('/') ||
-          url.contains(':\\') ||
-          url.startsWith('file://')) {
-        // Local file - use File instead of HTTP
-        final filePath = url.replaceFirst('file://', '');
-        final file = File(filePath);
+      // Check if it's a local file path (skip on web)
+      if (!kIsWeb &&
+          (url.startsWith('/') ||
+              url.contains(':\\') ||
+              url.startsWith('file://'))) {
+        // Load from local file system
+        final bytes = await loadFromLocalFile(url);
 
-        if (!await file.exists()) {
+        if (bytes == null) {
           _retryNext();
           return;
         }
-
-        final bytes = await file.readAsBytes();
 
         if (!_isImage(bytes)) {
           _retryNext();

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import '../models/monster.dart';
 import '../models/encounter.dart';
 import '../services/dnd_service.dart';
@@ -9,12 +10,9 @@ import '../widgets/add_monster_dialog.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:path_provider/path_provider.dart';
 import 'monster_data_sources_screen.dart';
-
-// Conditional import for File (web-safe)
-import '../../widgets/file_io.dart'
-    if (dart.library.html) '../../widgets/file_stub.dart';
+import '../../widgets/monster_image_saver_io.dart'
+    if (dart.library.html) '../../widgets/monster_image_saver_web.dart';
 
 class EncounterEditorScreen extends StatefulWidget {
   final Encounter encounter;
@@ -227,6 +225,22 @@ class _EncounterEditorScreenState extends State<EncounterEditorScreen> {
   }
 
   Future<void> _uploadMonsterImage(int monsterIndex) async {
+    // Image upload is not supported on web
+    if (kIsWeb) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Image upload is not available on web. Use the AI generation feature instead.',
+            ),
+            backgroundColor: Colors.orange,
+            duration: Duration(seconds: 3),
+          ),
+        );
+      }
+      return;
+    }
+
     final ImagePicker picker = ImagePicker();
 
     try {
@@ -240,20 +254,12 @@ class _EncounterEditorScreenState extends State<EncounterEditorScreen> {
 
       if (image == null) return;
 
-      // Get app documents directory
-      final Directory appDir = await getApplicationDocumentsDirectory();
-      final String customImagesDir = '${appDir.path}/custom_monster_images';
+      // Save image to app directory
+      final savedPath = await saveMonsterImage(image.path, image.name);
 
-      // Create directory if it doesn't exist
-      await Directory(customImagesDir).create(recursive: true);
-
-      // Generate unique filename
-      final String fileName =
-          'monster_${DateTime.now().millisecondsSinceEpoch}_${image.name}';
-      final String savedPath = '$customImagesDir/$fileName';
-
-      // Copy file to app directory
-      await File(image.path).copy(savedPath);
+      if (savedPath == null) {
+        throw Exception('Failed to save image');
+      }
 
       // Update monster with new image URL
       if (mounted) {
