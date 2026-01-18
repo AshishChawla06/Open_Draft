@@ -2,6 +2,9 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 
+// Conditional import: use dart:io on mobile/desktop, stub on web
+import 'file_io.dart' if (dart.library.html) 'file_stub.dart';
+
 /// A widget that tries to load images from a list of URLs sequentially.
 /// If one fails, it tries the next. If all fail, it shows a placeholder.
 ///
@@ -11,6 +14,8 @@ import 'package:http/http.dart' as http;
 class CascadeImage extends StatefulWidget {
   final List<String> imageUrls;
   final Widget Function(BuildContext, Object, StackTrace?)? errorBuilder;
+  final VoidCallback? onGenerateImage;
+  final VoidCallback? onUploadImage;
   final BoxFit? fit;
   final double? width;
   final double? height;
@@ -19,6 +24,8 @@ class CascadeImage extends StatefulWidget {
     super.key,
     required this.imageUrls,
     this.errorBuilder,
+    this.onGenerateImage,
+    this.onUploadImage,
     this.fit,
     this.width,
     this.height,
@@ -98,10 +105,38 @@ class _CascadeImageState extends State<CascadeImage> {
     try {
       final url = widget.imageUrls[_currentIndex];
 
-      // Manual Download & Inspection
+      // Check if it's a local file path
+      if (url.startsWith('/') ||
+          url.contains(':\\') ||
+          url.startsWith('file://')) {
+        // Local file - use File instead of HTTP
+        final filePath = url.replaceFirst('file://', '');
+        final file = File(filePath);
+
+        if (!await file.exists()) {
+          _retryNext();
+          return;
+        }
+
+        final bytes = await file.readAsBytes();
+
+        if (!_isImage(bytes)) {
+          _retryNext();
+          return;
+        }
+
+        if (mounted) {
+          setState(() {
+            _validImageData = bytes;
+            _isLoading = false;
+          });
+        }
+        return;
+      }
+
+      // Remote URL - use HTTP
       final response = await http.get(
         Uri.parse(url),
-        // Add a browser-like User-Agent to satisfy strict CDNs/Cloudflare
         headers: {
           'User-Agent':
               'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
@@ -109,31 +144,24 @@ class _CascadeImageState extends State<CascadeImage> {
       );
 
       if (response.statusCode != 200) {
-        // Silently retry next (don't throw to avoid debugger pause)
         _retryNext();
         return;
       }
 
       final bytes = response.bodyBytes;
 
-      // Verify Magic Byte Signature (is it actually an image?)
       if (!_isImage(bytes)) {
-        // Silently retry next (don't throw to avoid debugger pause)
         _retryNext();
         return;
       }
 
       if (mounted) {
-        // Precache the bytes logic is automatic with Image.memory,
-        // but we can "pre-decode" if we really want to be safe,
-        // however Image.memory is generally safer than NetworkImage as bytes are local.
         setState(() {
           _validImageData = bytes;
           _isLoading = false;
         });
       }
     } catch (e) {
-      // Download failed or invalid signature -> Try next
       _retryNext();
     }
   }
@@ -161,7 +189,42 @@ class _CascadeImageState extends State<CascadeImage> {
         width: widget.width,
         height: widget.height,
         color: Colors.grey.withOpacity(0.1),
-        child: const Icon(Icons.image_not_supported, color: Colors.grey),
+        child: (widget.onGenerateImage != null || widget.onUploadImage != null)
+            ? Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (widget.onGenerateImage != null)
+                      IconButton(
+                        icon: const Icon(
+                          Icons.auto_awesome,
+                          color: Colors.blue,
+                          size: 16,
+                        ),
+                        onPressed: widget.onGenerateImage,
+                        tooltip: 'Generate with AI',
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
+                        iconSize: 16,
+                      ),
+                    if (widget.onUploadImage != null)
+                      IconButton(
+                        icon: const Icon(
+                          Icons.upload_file,
+                          color: Colors.green,
+                          size: 16,
+                        ),
+                        onPressed: widget.onUploadImage,
+                        tooltip: 'Upload Image',
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
+                        iconSize: 16,
+                      ),
+                  ],
+                ),
+              )
+            : const Icon(Icons.image_not_supported, color: Colors.grey),
       );
     }
 

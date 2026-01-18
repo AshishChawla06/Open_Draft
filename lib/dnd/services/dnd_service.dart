@@ -2,37 +2,64 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:logger/logger.dart';
 import '../models/monster.dart';
+import '../data/srd_monsters.dart';
 
 enum MonsterImageProvider {
-  open5e, // api.open5e.com
-  fiveETools, // 5e.tools (placeholder / direct)
-  google, // Mock/Placeholder for future
+  open5e, // api.open5e.com (default)
+  fiveETools, // 5e.tools
+  fiveEBits, // 5e-bits/5e-srd-api (GitHub-based, comprehensive SRD)
 }
 
 class DnDService {
+  static const String _baseUrl = 'https://api.open5e.com/monsters';
   static final Logger _logger = Logger();
-  static const String _baseUrl = 'https://api.open5e.com/monsters/';
 
   static bool _isInitialized = false;
+
   static Future<void> initialize() async {
     if (_isInitialized) return;
-    // Simulate loading local monster database or heavy assets
-    await Future.delayed(const Duration(seconds: 1));
+    // Load offline SRD monsters from JSON
+    await SRDMonsters.loadFromAssets();
     _isInitialized = true;
   }
 
-  // Simple in-memory cache to avoid rate limiting and speed up searches
+  // Simple in-memory cache
   static final List<Monster> _monsterCache = [];
 
-  /// Searches for monsters by name.
-  /// If [query] is empty, returns cache or fetches popular/low CR monsters.
+  /// Searches for monsters - offline-first pattern
+  /// Returns local SRD immediately, then enriches with API data via callback
   static Future<List<Monster>> searchMonsters(
     String query, {
     String? type,
     String? document,
     MonsterImageProvider imageProvider = MonsterImageProvider.open5e,
+    Function(List<Monster>)? onApiResults,
   }) async {
     await initialize();
+
+    // INSTANT: Return local SRD monsters immediately
+    final localResults = _searchLocalMonsters(query, type: type);
+
+    // BACKGROUND: Fetch from API and call callback when done
+    _fetchApiMonsters(
+      query,
+      type: type,
+      document: document,
+      imageProvider: imageProvider,
+      onResults: onApiResults,
+    );
+
+    return localResults;
+  }
+
+  /// Fetch from API in background
+  static Future<void> _fetchApiMonsters(
+    String query, {
+    String? type,
+    String? document,
+    MonsterImageProvider imageProvider = MonsterImageProvider.open5e,
+    Function(List<Monster>)? onResults,
+  }) async {
     try {
       String queryParams = 'search=${Uri.encodeComponent(query)}&limit=50';
       if (type != null && type.isNotEmpty) {
@@ -43,17 +70,30 @@ class DnDService {
       }
 
       final url = Uri.parse('$_baseUrl?$queryParams');
-      final response = await http.get(url);
+      _logger.i('Fetching from API: $url');
+
+      final response = await http
+          .get(url)
+          .timeout(
+            const Duration(seconds: 30),
+            onTimeout: () {
+              _logger.w('API timeout - using offline results');
+              return http.Response('{"results":[]}', 408);
+            },
+          );
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
-        final results = data['results'] as List<dynamic>;
+        final results = data['results'] as List<dynamic>?;
+
+        if (results == null || results.isEmpty) {
+          _logger.w('API returned no results');
+          return;
+        }
 
         final monsters = results.map((json) {
           var monster = Monster.fromJson(json);
-          // Apply provider-specific image logic
           if (imageProvider == MonsterImageProvider.fiveETools) {
-            // Mocking a 5e.tools lookup pattern for demonstration
             final toolsUrl =
                 'https://raw.githubusercontent.com/TheGiddyLimit/homebrew/master/_img/monsters/MM/${monster.name}.png';
             monster = monster.copyWith(
@@ -64,29 +104,37 @@ class DnDService {
           return monster;
         }).toList();
 
-        // Update cache with new finds
+        // Update cache
         for (var monster in monsters) {
           if (!_monsterCache.any((m) => m.slug == monster.slug)) {
             _monsterCache.add(monster);
           }
         }
 
-        return monsters;
-      } else {
-        _logger.e('Failed to load monsters: ${response.statusCode}');
-        return [];
+        // Call callback with API results
+        onResults?.call(monsters);
       }
     } catch (e) {
-      _logger.e('Error searching monsters: $e');
-      return [];
+      _logger.e('API error: $e');
+      // Silent fail - local results already shown
     }
   }
 
+  /// Search local SRD monsters (offline)
+  static List<Monster> _searchLocalMonsters(String query, {String? type}) {
+    final srdMonsters = SRDMonsters.search(query);
+
+    if (type != null && type.isNotEmpty) {
+      return srdMonsters
+          .where((m) => m.type.toLowerCase() == type.toLowerCase())
+          .toList();
+    }
+
+    return srdMonsters;
+  }
+
   /// Calculates XP threshold difficulty for a party.
-  /// Returns 'Easy', 'Medium', 'Hard', or 'Deadly'.
   static String calculateDifficulty(int totalXp, int partySize, int level) {
-    // Simplified XP Logic for 5e
-    // Thresholds per character level (Level: [Easy, Medium, Hard, Deadly])
     const thresholds = {
       1: [25, 50, 75, 100],
       2: [50, 100, 150, 200],
@@ -98,15 +146,10 @@ class DnDService {
       8: [450, 900, 1400, 2100],
       9: [550, 1100, 1600, 2400],
       10: [600, 1200, 1900, 2800],
-      // ... extrapolating or capping for now
     };
 
     final levelKey = level.clamp(1, 10);
     final levels = thresholds[levelKey]!;
-
-    // Adjusted XP for encounter (Total XP * Multiplier based on count)
-    // We'll trust the caller to pass "Adjusted XP" or just use Raw XP for now.
-    // Let's use raw totals against Party Thresholds for simplicity.
 
     final partyEasy = levels[0] * partySize;
     final partyMedium = levels[1] * partySize;

@@ -1,10 +1,20 @@
 import 'package:flutter/material.dart';
 import '../models/monster.dart';
 import '../models/encounter.dart';
+import '../services/dnd_service.dart';
 import '../../widgets/glass_container.dart';
 import '../../widgets/glass_background.dart';
 import '../../widgets/cascade_image.dart';
 import '../widgets/add_monster_dialog.dart';
+import 'package:url_launcher/url_launcher.dart';
+import 'package:flutter/services.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:path_provider/path_provider.dart';
+import 'monster_data_sources_screen.dart';
+
+// Conditional import for File (web-safe)
+import '../../widgets/file_io.dart'
+    if (dart.library.html) '../../widgets/file_stub.dart';
 
 class EncounterEditorScreen extends StatefulWidget {
   final Encounter encounter;
@@ -75,16 +85,106 @@ class _EncounterEditorScreenState extends State<EncounterEditorScreen> {
     });
   }
 
-  void _updateDifficulty() {
-    // Basic placeholder logic. Real logic would use DnDService.calculateDifficulty
-    // But we need total XP and party size.
-    // For now, let's just sum XP.
-    // We haven't implemented XP lookup yet (it's 0 in basic map).
-    // Let's just set it to 'Calculating...' or manual for now.
-    // Or better, let's update simple difficulty based on monster count/CR sum roughly.
+  void _incrementMonsterQuantity(int index) {
+    // Add another instance of the same monster
+    if (index < 0 || index >= _monsters.length) return;
 
-    // Actually, let's just leave it manual or auto-update on save.
-    // We'll update the state.
+    final original = _monsters[index];
+    if (original.monsterSnapshot == null) return;
+
+    final newMonster = EncounterMonster.fromMonster(original.monsterSnapshot!);
+
+    setState(() {
+      _monsters.insert(index + 1, newMonster);
+      _updateDifficulty();
+    });
+  }
+
+  void _decrementMonsterQuantity(int index) {
+    // Remove this instance (same as delete if quantity would be 0)
+    _removeMonster(index);
+  }
+
+  void _updateDifficulty() {
+    if (_monsters.isEmpty) {
+      setState(() => _difficulty = 'Trivial');
+      return;
+    }
+
+    // Calculate total XP from all monsters
+    int totalXp = 0;
+    for (final monster in _monsters) {
+      final cr = monster.monsterSnapshot?.challengeRating ?? 0.0;
+      totalXp += _getXpForCr(cr);
+    }
+
+    // Apply encounter multiplier based on number of monsters
+    final multiplier = _getEncounterMultiplier(_monsters.length);
+    final adjustedXp = (totalXp * multiplier).round();
+
+    // For now, assume party of 4 level 5 characters (can be made configurable later)
+    const partySize = 4;
+    const partyLevel = 5;
+
+    // Calculate difficulty using DnDService
+    final calculatedDifficulty = DnDService.calculateDifficulty(
+      adjustedXp,
+      partySize,
+      partyLevel,
+    );
+
+    setState(() => _difficulty = calculatedDifficulty);
+  }
+
+  int _getXpForCr(double cr) {
+    // Official D&D 5e CR to XP conversion
+    final xpMap = {
+      0.0: 10,
+      0.125: 25,
+      0.25: 50,
+      0.5: 100,
+      1.0: 200,
+      2.0: 450,
+      3.0: 700,
+      4.0: 1100,
+      5.0: 1800,
+      6.0: 2300,
+      7.0: 2900,
+      8.0: 3900,
+      9.0: 5000,
+      10.0: 5900,
+      11.0: 7200,
+      12.0: 8400,
+      13.0: 10000,
+      14.0: 11500,
+      15.0: 13000,
+      16.0: 15000,
+      17.0: 18000,
+      18.0: 20000,
+      19.0: 22000,
+      20.0: 25000,
+      21.0: 33000,
+      22.0: 41000,
+      23.0: 50000,
+      24.0: 62000,
+      25.0: 75000,
+      26.0: 90000,
+      27.0: 105000,
+      28.0: 120000,
+      29.0: 135000,
+      30.0: 155000,
+    };
+    return xpMap[cr] ?? 0;
+  }
+
+  double _getEncounterMultiplier(int monsterCount) {
+    // D&D 5e encounter multipliers
+    if (monsterCount == 1) return 1.0;
+    if (monsterCount == 2) return 1.5;
+    if (monsterCount <= 6) return 2.0;
+    if (monsterCount <= 10) return 2.5;
+    if (monsterCount <= 14) return 3.0;
+    return 4.0;
   }
 
   void _save() {
@@ -92,11 +192,111 @@ class _EncounterEditorScreenState extends State<EncounterEditorScreen> {
       title: _titleController.text,
       notes: _notesController.text,
       environment: _environment,
-      difficultyRating: _difficulty, // TODO: Calculate real difficulty
+      difficultyRating: _difficulty, // Auto-calculated based on XP
       monsters: _monsters,
     );
     widget.onSave(updated);
     Navigator.pop(context);
+  }
+
+  Future<void> _generateMonsterImage(Monster monster) async {
+    final promptText =
+        'Create a fantasy art image of ${monster.name}, a ${monster.size} ${monster.type} creature from Dungeons and Dragons. ${monster.description ?? ""}'
+            .trim();
+
+    // Copy to clipboard
+    await Clipboard.setData(ClipboardData(text: promptText));
+
+    // Show snackbar
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Prompt copied! Press Ctrl+V to paste in Gemini.'),
+          duration: Duration(seconds: 3),
+        ),
+      );
+    }
+
+    // Launch Gemini
+    final prompt = Uri.encodeComponent(promptText);
+    final url = Uri.parse('https://gemini.google.com/app?q=$prompt');
+
+    if (await canLaunchUrl(url)) {
+      await launchUrl(url, mode: LaunchMode.externalApplication);
+    }
+  }
+
+  Future<void> _uploadMonsterImage(int monsterIndex) async {
+    final ImagePicker picker = ImagePicker();
+
+    try {
+      // Pick image from gallery
+      final XFile? image = await picker.pickImage(
+        source: ImageSource.gallery,
+        maxWidth: 1024,
+        maxHeight: 1024,
+        imageQuality: 85,
+      );
+
+      if (image == null) return;
+
+      // Get app documents directory
+      final Directory appDir = await getApplicationDocumentsDirectory();
+      final String customImagesDir = '${appDir.path}/custom_monster_images';
+
+      // Create directory if it doesn't exist
+      await Directory(customImagesDir).create(recursive: true);
+
+      // Generate unique filename
+      final String fileName =
+          'monster_${DateTime.now().millisecondsSinceEpoch}_${image.name}';
+      final String savedPath = '$customImagesDir/$fileName';
+
+      // Copy file to app directory
+      await File(image.path).copy(savedPath);
+
+      // Update monster with new image URL
+      if (mounted) {
+        setState(() {
+          final monster = _monsters[monsterIndex];
+          //Update the monster snapshot with new image path
+          if (monster.monsterSnapshot != null) {
+            final updatedMonster = monster.monsterSnapshot!.copyWith(
+              imgUrl: savedPath,
+              imageSource: 'Custom Upload',
+            );
+            // Create new EncounterMonster with updated snapshot
+            _monsters[monsterIndex] = EncounterMonster(
+              instanceId: monster.instanceId,
+              monsterSlug: monster.monsterSlug,
+              monsterSnapshot: updatedMonster,
+              customName: monster.customName,
+              currentHp: monster.currentHp,
+              maxHp: monster.maxHp,
+              initiative: monster.initiative,
+              xp: monster.xp,
+            );
+          }
+        });
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Image uploaded successfully!'),
+            duration: Duration(seconds: 2),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to upload image: $e'),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
+    }
   }
 
   Future<void> _delete() async {
@@ -143,6 +343,19 @@ class _EncounterEditorScreenState extends State<EncounterEditorScreen> {
           ),
           title: const Text("Edit Encounter"),
           actions: [
+            // Monster Data Sources
+            IconButton(
+              icon: const Icon(Icons.cloud_sync),
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const MonsterDataSourcesScreen(),
+                  ),
+                );
+              },
+              tooltip: "Monster Data Sources",
+            ),
             IconButton(
               icon: const Icon(Icons.delete_outline, color: Colors.redAccent),
               onPressed: _delete,
@@ -283,18 +496,16 @@ class _EncounterEditorScreenState extends State<EncounterEditorScreen> {
                         borderRadius: BorderRadius.circular(12),
                         opacity: 0.1,
                         child: ListTile(
-                          leading: m.monsterSnapshot?.imgUrl != null
-                              ? ClipRRect(
-                                  borderRadius: BorderRadius.circular(4),
-                                  child: CascadeImage(
-                                    imageUrls:
-                                        m.monsterSnapshot!.imageCandidates,
-                                    width: 40,
-                                    height: 40,
-                                    fit: BoxFit.cover,
-                                  ),
-                                )
-                              : const Icon(Icons.pets, color: Colors.white24),
+                          leading: ClipRRect(
+                            borderRadius: BorderRadius.circular(4),
+                            child: CascadeImage(
+                              imageUrls:
+                                  m.monsterSnapshot?.imageCandidates ?? [],
+                              width: 40,
+                              height: 40,
+                              fit: BoxFit.cover,
+                            ),
+                          ),
                           title: Text(
                             m.customName,
                             style: const TextStyle(fontWeight: FontWeight.bold),
@@ -303,12 +514,118 @@ class _EncounterEditorScreenState extends State<EncounterEditorScreen> {
                             'HP: ${m.maxHp} | AC: ${m.monsterSnapshot?.armorClass ?? "?"} | CR: ${m.monsterSnapshot?.challengeRating ?? "?"}',
                             style: const TextStyle(fontSize: 11),
                           ),
-                          trailing: IconButton(
-                            icon: const Icon(
-                              Icons.delete,
-                              color: Colors.redAccent,
-                            ),
-                            onPressed: () => _removeMonster(index),
+                          trailing: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              // Quantity controls
+                              Container(
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withValues(alpha: 0.1),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    IconButton(
+                                      icon: const Icon(Icons.remove, size: 16),
+                                      onPressed: () =>
+                                          _decrementMonsterQuantity(index),
+                                      tooltip: 'Remove one',
+                                      constraints: const BoxConstraints(
+                                        minWidth: 32,
+                                        minHeight: 32,
+                                      ),
+                                      padding: EdgeInsets.zero,
+                                    ),
+                                    Text(
+                                      '1', // Will be dynamic later
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 14,
+                                      ),
+                                    ),
+                                    IconButton(
+                                      icon: const Icon(Icons.add, size: 16),
+                                      onPressed: () =>
+                                          _incrementMonsterQuantity(index),
+                                      tooltip: 'Add another',
+                                      constraints: const BoxConstraints(
+                                        minWidth: 32,
+                                        minHeight: 32,
+                                      ),
+                                      padding: EdgeInsets.zero,
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              // Actions menu
+                              PopupMenuButton<String>(
+                                icon: const Icon(Icons.more_vert),
+                                onSelected: (value) {
+                                  switch (value) {
+                                    case 'generate':
+                                      if (m.monsterSnapshot != null) {
+                                        _generateMonsterImage(
+                                          m.monsterSnapshot!,
+                                        );
+                                      }
+                                      break;
+                                    case 'upload':
+                                      _uploadMonsterImage(index);
+                                      break;
+                                    case 'delete':
+                                      _removeMonster(index);
+                                      break;
+                                  }
+                                },
+                                itemBuilder: (context) => [
+                                  const PopupMenuItem(
+                                    value: 'generate',
+                                    child: Row(
+                                      children: [
+                                        Icon(
+                                          Icons.auto_awesome,
+                                          color: Colors.blue,
+                                          size: 20,
+                                        ),
+                                        SizedBox(width: 12),
+                                        Text('Generate Image with AI'),
+                                      ],
+                                    ),
+                                  ),
+                                  const PopupMenuItem(
+                                    value: 'upload',
+                                    child: Row(
+                                      children: [
+                                        Icon(
+                                          Icons.upload_file,
+                                          color: Colors.green,
+                                          size: 20,
+                                        ),
+                                        SizedBox(width: 12),
+                                        Text('Upload Image'),
+                                      ],
+                                    ),
+                                  ),
+                                  const PopupMenuDivider(),
+                                  const PopupMenuItem(
+                                    value: 'delete',
+                                    child: Row(
+                                      children: [
+                                        Icon(
+                                          Icons.delete,
+                                          color: Colors.redAccent,
+                                          size: 20,
+                                        ),
+                                        SizedBox(width: 12),
+                                        Text('Remove'),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
                           ),
                         ),
                       ),
@@ -415,24 +732,11 @@ class _EncounterEditorScreenState extends State<EncounterEditorScreen> {
                           imageUrls: m.monsterSnapshot!.imageCandidates,
                           width: 140,
                           fit: BoxFit.cover,
-                          errorBuilder: (context, error, stackTrace) =>
-                              Container(
-                                width: 140,
-                                decoration: BoxDecoration(
-                                  color: Colors.red.withValues(alpha: 0.1),
-                                  border: Border.all(
-                                    color: Colors.red.withValues(alpha: 0.3),
-                                  ),
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                child: const Center(
-                                  child: Icon(
-                                    Icons.error_outline,
-                                    color: Colors.redAccent,
-                                    size: 24,
-                                  ),
-                                ),
-                              ),
+                          onGenerateImage: () =>
+                              _generateMonsterImage(m.monsterSnapshot!),
+                          onUploadImage: () => _uploadMonsterImage(
+                            monstersWithImages.indexOf(m),
+                          ),
                         ),
                       ),
                     ),

@@ -1,3 +1,4 @@
+import 'dart:math';
 import 'package:flutter/material.dart';
 import '../../widgets/glass_container.dart';
 
@@ -69,6 +70,9 @@ class _StatblockComposerState extends State<StatblockComposer> {
   late String _selectedType;
   late String _selectedAlignment;
 
+  // Difficulty slider (0=Easy, 1=Medium, 2=Hard, 3=Deadly)
+  double _difficulty = 1.0; // Start at Medium
+
   @override
   void initState() {
     super.initState();
@@ -99,23 +103,27 @@ class _StatblockComposerState extends State<StatblockComposer> {
   void _randomizeStats() {
     setState(() {
       // Only randomize stats that are not locked
+      final random = Random();
+      int baseRoll() => 8 + random.nextInt(10); // 8-17 range
+      final difficultyBonus = (_difficulty * 2).round(); // 0, 2, 4, 6
+
       if (!_lockedStats.contains('STR')) {
-        _abilityScores['STR'] = 8 + (DateTime.now().millisecond % 10);
+        _abilityScores['STR'] = baseRoll() + difficultyBonus;
       }
       if (!_lockedStats.contains('DEX')) {
-        _abilityScores['DEX'] = 8 + (DateTime.now().millisecond % 10);
+        _abilityScores['DEX'] = baseRoll() + difficultyBonus;
       }
       if (!_lockedStats.contains('CON')) {
-        _abilityScores['CON'] = 8 + (DateTime.now().microsecond % 10);
+        _abilityScores['CON'] = baseRoll() + difficultyBonus;
       }
       if (!_lockedStats.contains('INT')) {
-        _abilityScores['INT'] = 8 + (DateTime.now().millisecond % 10);
+        _abilityScores['INT'] = baseRoll() + difficultyBonus;
       }
       if (!_lockedStats.contains('WIS')) {
-        _abilityScores['WIS'] = 8 + (DateTime.now().microsecond % 10);
+        _abilityScores['WIS'] = baseRoll() + difficultyBonus;
       }
       if (!_lockedStats.contains('CHA')) {
-        _abilityScores['CHA'] = 8 + (DateTime.now().millisecond % 10);
+        _abilityScores['CHA'] = baseRoll() + difficultyBonus;
       }
 
       _selectedSize = (_sizes..shuffle()).first;
@@ -125,8 +133,8 @@ class _StatblockComposerState extends State<StatblockComposer> {
       final dexMod = (_abilityScores['DEX']! - 10) ~/ 2;
       final conMod = (_abilityScores['CON']! - 10) ~/ 2;
 
-      _acController.text = (10 + dexMod).toString();
-      _hpController.text = (10 + conMod).toString();
+      _acController.text = (10 + dexMod + difficultyBonus).toString();
+      _hpController.text = (10 + conMod + (difficultyBonus * 2)).toString();
     });
   }
 
@@ -279,6 +287,10 @@ class _StatblockComposerState extends State<StatblockComposer> {
 
                     _buildSectionHeader('Ability Scores'),
                     _buildAbilityScoreGrid(),
+                    const SizedBox(height: 24),
+
+                    _buildSectionHeader('Difficulty & Level'),
+                    _buildDifficultySlider(),
                     const SizedBox(height: 24),
 
                     _buildSectionHeader('Preview (Draft)'),
@@ -450,6 +462,89 @@ class _StatblockComposerState extends State<StatblockComposer> {
   String _getModifierString(int score) {
     final mod = (score - 10) ~/ 2;
     return mod >= 0 ? '+$mod' : '$mod';
+  }
+
+  String _getDifficultyLabel() {
+    if (_difficulty <= 0.5) return 'Easy';
+    if (_difficulty <= 1.5) return 'Medium';
+    if (_difficulty <= 2.5) return 'Hard';
+    return 'Deadly';
+  }
+
+  int _getRecommendedLevel() {
+    // Calculate average ability score
+    final avgScore = _abilityScores.values.reduce((a, b) => a + b) / 6;
+    final ac = int.tryParse(_acController.text) ?? 10;
+
+    // Level calculation based on stats
+    if (avgScore < 10 && ac < 12) return 1;
+    if (avgScore < 12 && ac < 14) return 3;
+    if (avgScore < 14 && ac < 16) return 5;
+    if (avgScore < 16 && ac < 18) return 8;
+    if (avgScore < 18 && ac < 20) return 11;
+    return 15;
+  }
+
+  Widget _buildDifficultySlider() {
+    return GlassContainer(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'Difficulty: ${_getDifficultyLabel()}',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  color: Theme.of(context).colorScheme.primary,
+                ),
+              ),
+              Text(
+                'Recommended Level: ${_getRecommendedLevel()}',
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 12,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Slider(
+            value: _difficulty,
+            min: 0,
+            max: 3,
+            divisions: 3,
+            label: _getDifficultyLabel(),
+            onChanged: (value) {
+              setState(() => _difficulty = value);
+            },
+          ),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'Easy',
+                style: TextStyle(fontSize: 10, color: Colors.grey.shade600),
+              ),
+              Text(
+                'Medium',
+                style: TextStyle(fontSize: 10, color: Colors.grey.shade600),
+              ),
+              Text(
+                'Hard',
+                style: TextStyle(fontSize: 10, color: Colors.grey.shade600),
+              ),
+              Text(
+                'Deadly',
+                style: TextStyle(fontSize: 10, color: Colors.grey.shade600),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
   }
 
   Widget _buildStatblockPreview() {

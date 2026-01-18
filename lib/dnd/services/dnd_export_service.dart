@@ -240,6 +240,11 @@ class DnDExportService {
   /// Convert QuillDelta JSON to plain text
   static String _deltaToPlainText(String deltaJson) {
     try {
+      // Handle empty or null content
+      if (deltaJson.isEmpty) {
+        return '';
+      }
+
       final data = jsonDecode(deltaJson);
       final ops = data['ops'] as List;
       final buffer = StringBuffer();

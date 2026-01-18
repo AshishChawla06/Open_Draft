@@ -6,7 +6,8 @@ import '../../widgets/glass_container.dart';
 import 'redaction_overlay.dart';
 import '../../models/redaction.dart';
 import '../../services/image_service.dart';
-import 'dart:io';
+import '../../../widgets/file_io.dart'
+    if (dart.library.html) '../../../widgets/file_stub.dart';
 import 'package:flutter/foundation.dart';
 
 class LocationsTab extends StatefulWidget {
@@ -130,6 +131,7 @@ class _LocationsTabState extends State<LocationsTab> {
     return RedactionOverlay(
       isRedacted: isRedacted,
       label: 'LOCATION SECRET',
+      onToggle: () => _editLocation(loc), // Allow GM to edit by clicking
       child: GlassContainer(
         margin: const EdgeInsets.only(bottom: 12),
         padding: const EdgeInsets.all(8),

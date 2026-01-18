@@ -147,6 +147,7 @@ class _ItemsTabState extends State<ItemsTab> {
     return RedactionOverlay(
       isRedacted: isRedacted,
       label: 'ITEM SECRET',
+      onToggle: () => _editItem(item), // Allow GM to edit by clicking
       child: GlassContainer(
         margin: const EdgeInsets.only(bottom: 12),
         padding: const EdgeInsets.all(8),

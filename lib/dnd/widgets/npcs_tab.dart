@@ -188,6 +188,7 @@ class _NpcsTabState extends State<NpcsTab> {
     return RedactionOverlay(
       isRedacted: isRedacted,
       label: 'NPC SECRET',
+      onToggle: () => _editNpc(npc), // Allow GM to edit by clicking
       child: GlassContainer(
         margin: const EdgeInsets.only(bottom: 12),
         padding: const EdgeInsets.all(8),

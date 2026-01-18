@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import '../../models/book.dart';
-import '../models/adventure_note.dart';
 import '../../services/database_service.dart';
+import '../models/adventure_note.dart';
+import '../models/encounter.dart';
 import '../../widgets/glass_container.dart';
 import 'redaction_overlay.dart';
 import '../../models/redaction.dart';
@@ -109,6 +110,7 @@ class _NotesTabState extends State<NotesTab> {
     return RedactionOverlay(
       isRedacted: isRedacted,
       label: 'SECRET NOTE',
+      onToggle: () => _editNote(note), // Allow GM to edit by clicking
       child: GlassContainer(
         margin: const EdgeInsets.only(bottom: 12),
         padding: const EdgeInsets.all(8),
@@ -339,8 +341,14 @@ class _NotesTabState extends State<NotesTab> {
       final locs = await DatabaseService.getDndLocations(widget.book.id);
       items = locs.map((e) => e.name).toList();
     } else {
-      final encounters = await DatabaseService.getDndEncounters(widget.book.id);
-      items = encounters.map((e) => e.title).toList();
+      // Encounters are stored by chapterId, so we need to get all chapters first
+      final chapters = await DatabaseService.getChapters(widget.book.id);
+      final allEncounters = <Encounter>[];
+      for (final chapter in chapters) {
+        final encounters = await DatabaseService.getDndEncounters(chapter.id);
+        allEncounters.addAll(encounters);
+      }
+      items = allEncounters.map((e) => e.title).toList();
     }
 
     if (!parentContext.mounted) return;
